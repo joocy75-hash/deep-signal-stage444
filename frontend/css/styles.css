@@ -1,0 +1,122 @@
+/* 계좌 정보 섹션 */
+.account-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.account-card {
+    background: rgba(255,255,255,0.1);
+    padding: 1.5rem;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+.account-card h4 {
+    margin-bottom: 1rem;
+    color: #fff;
+    border-bottom: 1px solid rgba(255,255,255,0.3);
+    padding-bottom: 0.5rem;
+}
+
+/* 잔액 아이템 */
+.balance-item {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(255,255,255,0.05);
+    border-radius: 5px;
+}
+
+/* 포지션 아이템 */
+.position-item {
+    background: rgba(255,255,255,0.05);
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    border-left: 4px solid;
+}
+
+.position-item.long {
+    border-left-color: #4CAF50;
+}
+
+.position-item.short {
+    border-left-color: #f44336;
+}
+
+.position-symbol {
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+}
+
+.position-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    font-size: 0.9rem;
+}
+
+/* 가격 아이템 */
+.price-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.75rem;
+    background: rgba(255,255,255,0.05);
+    border-radius: 5px;
+    margin-bottom: 0.5rem;
+}
+
+.price-item .symbol {
+    font-weight: bold;
+}
+
+.price-item .price {
+    color: #4CAF50;
+    font-weight: bold;
+}
+
+.price-item .timestamp {
+    font-size: 0.8rem;
+    opacity: 0.7;
+}
+
+/* 버튼 스타일 */
+.btn-refresh {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 1rem;
+    width: 100%;
+}
+
+.btn-refresh:hover {
+    background: #1976D2;
+}
+
+/* 상태 표시 */
+.positive { color: #4CAF50; }
+.negative { color: #f44336; }
+.loading { 
+    text-align: center; 
+    padding: 2rem; 
+    opacity: 0.7;
+}
+.error { 
+    color: #f44336; 
+    text-align: center;
+    padding: 1rem;
+}
+
+.no-positions {
+    text-align: center;
+    padding: 2rem;
+    opacity: 0.7;
+}

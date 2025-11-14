@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSignal AI - 자동매매 플랫폼</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-box">
+            <div class="login-logo">
+                <div class="logo">DeepSignal AI</div>
+                <div class="tagline">AI 기반 자동매매 플랫폼</div>
+            </div>
+            
+            <form class="login-form" id="loginForm">
+                <div class="form-group">
+                    <label class="form-label">이메일</label>
+                    <input type="email" class="form-input" id="email" placeholder="이메일을 입력하세요" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">비밀번호</label>
+                    <input type="password" class="form-input" id="password" placeholder="비밀번호를 입력하세요" required>
+                </div>
+                
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <span class="loading" id="loginLoading" style="display: none;"></span>
+                    <span id="loginText">로그인</span>
+                </button>
+            </form>
+            
+            <div class="login-footer">
+                아직 계정이 없으신가요? <a href="#" id="registerLink">무료로 시작하기</a>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/login.js"></script>
+</body>
+</html>
+<!-- 기존 스크립트 아래에 추가 -->
+<script src="js/modules/utils.js"></script>
+<script src="js/modules/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/main.js"></script>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSignal AI - 자동매매 플랫폼</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <!-- ... 기존 HTML 코드 유지 ... -->
+    </div>
+
+    <!-- 스크립트 순서 중요! -->
+    <script src="js/config.js"></script>
+    <script src="js/modules/utils.js"></script>  <!-- ✅ 모듈 추가 -->
+    <script src="js/auth.js"></script>
+    <script src="js/login.js"></script>          <!-- ✅ 여기에 테스트 코드 넣을거에요 -->
+</body>
+</html>

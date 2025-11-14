@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>관리자 - DeepSignal AI</title>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="admin-layout">
+        <!-- 관리자 전용 사이드바 -->
+        <nav class="admin-sidebar">
+            <!-- 관리자 전용 메뉴 -->
+        </nav>
+        
+        <main class="admin-content">
+            <header class="admin-header">
+                <h1>관리자 대시보드</h1>
+            </header>
+            
+            <div class="admin-stats grid grid-4">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalUsers">0</div>
+                    <div class="stat-label">전체 사용자</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="activeTraders">0</div>
+                    <div class="stat-label">활성 트레이더</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalProfit">$0</div>
+                    <div class="stat-label">총 수익</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="systemHealth">100%</div>
+                    <div class="stat-label">시스템 상태</div>
+                </div>
+            </div>
+            
+            <!-- AI 모델 관리, 사용자 관리, 수익 분석 등 관리자 전용 기능 -->
+        </main>
+    </div>
+
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/admin.js"></script>
+</body>
+</html>
+<!-- 기존 스크립트 아래에 추가 -->
+<script src="js/modules/utils.js"></script>
+<script src="js/modules/api.js"></script>
+<script src="js/modules/trading.js"></script>
+<script src="js/main.js"></script>

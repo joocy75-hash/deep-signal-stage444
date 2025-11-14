@@ -1,0 +1,105 @@
+from binance.client import Client
+from binance.enums import *
+import pandas as pd
+from typing import Dict, List, Optional
+import ta  # 기술적 분석 라이브러리
+
+class AdvancedBinanceService:
+    def __init__(self, api_key: str, api_secret: str, testnet: bool = True):
+        self.client = Client(api_key, api_secret, testnet=testnet)
+        self.is_testnet = testnet
+    
+    def get_account_balance(self):
+        """실제 계좌 잔액 상세 조회"""
+        try:
+            account = self.client.futures_account()
+            balances = {
+                "total_balance": float(account['totalWalletBalance']),
+                "available_balance": float(account['availableBalance']),
+                "unrealized_pnl": float(account['totalUnrealizedProfit']),
+                "margin_balance": float(account['totalMarginBalance']),
+                "initial_margin": float(account['totalInitialMargin']),
+                "maintenance_margin": float(account['totalMaintMargin']),
+                "account_type": "TESTNET" if self.is_testnet else "MAINNET"
+            }
+            
+            # 자산별 상세 잔고
+            asset_balances = []
+            for asset in account['assets']:
+                if float(asset['walletBalance']) != 0:
+                    asset_balances.append({
+                        'asset': asset['asset'],
+                        'wallet_balance': float(asset['walletBalance']),
+                        'unrealized_pnl': float(asset['unrealizedProfit'])
+                    })
+            
+            return {
+                "status": "success", 
+                "balances": balances,
+                "asset_balances": asset_balances
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    def get_positions(self):
+        """실제 포지션 상세 조회"""
+        try:
+            account = self.client.futures_account()
+            positions = []
+            
+            for position in account['positions']:
+                position_amt = float(position['positionAmt'])
+                if position_amt != 0:
+                    positions.append({
+                        'symbol': position['symbol'],
+                        'position_amt': position_amt,
+                        'entry_price': float(position['entryPrice']),
+                        'unrealized_pnl': float(position['unrealizedProfit']),
+                        'leverage': int(position['leverage']),
+                        'liquidation_price': float(position['liquidationPrice']),
+                        'margin_type': position['marginType'],
+                        'isolated_wallet': float(position['isolatedWallet']),
+                        'side': 'LONG' if position_amt > 0 else 'SHORT',
+                        'current_price': float(position['markPrice']) if position['markPrice'] else 0
+                    })
+            
+            return {
+                "status": "success", 
+                "positions": positions,
+                "total_positions": len(positions)
+            }
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    def get_real_time_prices(self, symbols: List[str]):
+        """다중 심볼 실시간 가격 조회"""
+        try:
+            prices = {}
+            for symbol in symbols:
+                ticker = self.client.futures_symbol_ticker(symbol=symbol)
+                prices[symbol] = {
+                    'symbol': symbol,
+                    'price': float(ticker['price']),
+                    'timestamp': ticker['time']
+                }
+            return {"status": "success", "prices": prices}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+    
+    def get_account_performance(self):
+        """계좌 성과 지표"""
+        try:
+            # 24시간 동안의 PNL 등 성과 지표
+            account = self.client.futures_account()
+            
+            performance = {
+                'daily_pnl': float(account['totalUnrealizedProfit']),
+                'total_balance': float(account['totalWalletBalance']),
+                'available_balance': float(account['availableBalance']),
+                'margin_ratio': (float(account['totalMaintMargin']) / float(account['totalMarginBalance'])) * 100 if float(account['totalMarginBalance']) > 0 else 0,
+                'leverage_used': len([p for p in account['positions'] if float(p['positionAmt']) != 0])
+            }
+            
+            return {"status": "success", "performance": performance}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}

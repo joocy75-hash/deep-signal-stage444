@@ -1,0 +1,65 @@
+from models.trading_journal import TradingJournal
+from sqlalchemy.orm import Session
+from datetime import datetime
+import asyncio
+
+class OrderManager:
+    def __init__(self, db: Session):
+        self.db = db
+
+    async def create_trade_entry(self, user_id: int, symbol: str, action: str, quantity: float, 
+                               entry_price: float, stop_loss: float, take_profit: float,
+                               ai_confidence: float, ai_reason: str, strategy_used: str):
+        """트레이딩 저널에 거래 기록 생성"""
+        trade = TradingJournal(
+            user_id=user_id,
+            symbol=symbol,
+            action=action,
+            quantity=quantity,
+            entry_price=entry_price,
+            stop_loss=stop_loss,
+            take_profit=take_profit,
+            ai_confidence=ai_confidence,
+            ai_reason=ai_reason,
+            strategy_used=strategy_used
+        )
+        self.db.add(trade)
+        self.db.commit()
+        self.db.refresh(trade)
+        return trade
+
+    async def update_take_profit(self, trade_id: int, take_profit: float):
+        """수익실현 가격 업데이트"""
+        trade = self.db.query(TradingJournal).filter(TradingJournal.id == trade_id).first()
+        if trade and trade.is_open:
+            trade.take_profit = take_profit
+            self.db.commit()
+        return trade
+
+    async def update_stop_loss(self, trade_id: int, stop_loss: float):
+        """손절가 업데이트"""
+        trade = self.db.query(TradingJournal).filter(TradingJournal.id == trade_id).first()
+        if trade and trade.is_open:
+            trade.stop_loss = stop_loss
+            self.db.commit()
+        return trade
+
+    async def close_trade(self, trade_id: int, exit_price: float, exit_reason: str):
+        """거래 종료 및 PNL 계산"""
+        trade = self.db.query(TradingJournal).filter(TradingJournal.id == trade_id).first()
+        if trade and trade.is_open:
+            trade.exit_price = exit_price
+            trade.exit_reason = exit_reason
+            trade.closed_at = datetime.now()
+            trade.is_open = False
+
+            # PNL 계산
+            if trade.action == "BUY":
+                trade.pnl = (exit_price - trade.entry_price) * trade.quantity
+                trade.pnl_percentage = (exit_price - trade.entry_price) / trade.entry_price * 100
+            else:  # SELL (공매도)
+                trade.pnl = (trade.entry_price - exit_price) * trade.quantity
+                trade.pnl_percentage = (trade.entry_price - exit_price) / trade.entry_price * 100
+
+            self.db.commit()
+        return trade
