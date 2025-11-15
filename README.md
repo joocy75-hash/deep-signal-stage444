@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # DEEP-SIGNAL-STAGE12
 
 암호화폐 신호 분석 플랫폼
@@ -28,3 +29,6 @@ pip install -r requirements.txt
 cd backend
 python main.py
 ```
+=======
+# deep-signal-stage444
+>>>>>>> 48e4cb774a9e6ca9c10555e0077237ad352502e7
