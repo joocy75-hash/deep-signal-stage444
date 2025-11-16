@@ -1,279 +1,167 @@
-// dashboard.js - 기존 기능 유지 + 모듈 통합
+// js/dashboard.js - 업데이트된 버전
+class Dashboard {
+    constructor() {
+        this.api = window.apiService;
+        this.updateInterval = null;
+        this.isAutoRefresh = true;
+        this.init();
+    }
 
-// ==================== 기존 트레이딩 함수들 ====================
-async function startTrading() {
-    console.log('🚀 트레이딩 시작');
-    
-    // ✅ 모듈 사용 (우선시)
-    if (typeof TradingEngine !== 'undefined') {
-        const result = TradingEngine.startTrading('momentum', {
-            symbol: "BTCUSDT",
-            quantity: 0.001
-        });
+    async init() {
+        console.log('📊 대시보드 초기화 중...');
         
-        if (result.success) {
-            console.log('✅ 모듈 트레이딩 시작:', result);
-            updateTradingStatus(true);
-            return result;
-        }
-    }
-    
-    // ✅ 기존 방식 (폴백)
-    try {
-        const response = await fetch('/api/trading/start', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
-            }
-        });
+        // 서버 상태 확인
+        await this.checkServerStatus();
         
-        const data = await response.json();
-        console.log('✅ 기존 방식 트레이딩 시작:', data);
-        updateTradingStatus(true);
-        return data;
-    } catch (error) {
-        console.error('❌ 트레이딩 시작 실패:', error);
-        return { success: false, error: error.message };
+        // 초기 데이터 로드
+        await this.loadDashboardData();
+        
+        // 실시간 업데이트 시작
+        this.startAutoRefresh();
+        
+        // 이벤트 리스너 설정
+        this.setupEventListeners();
     }
-}
 
-async function stopTrading() {
-    console.log('🛑 트레이딩 정지');
-    
-    // ✅ 모듈 사용 (우선시)
-    if (typeof TradingEngine !== 'undefined') {
-        const result = TradingEngine.stopTrading();
-        
-        if (result.success) {
-            console.log('✅ 모듈 트레이딩 정지:', result);
-            updateTradingStatus(false);
-            return result;
-        }
-    }
-    
-    // ✅ 기존 방식 (폴백)
-    try {
-        const response = await fetch('/api/trading/stop', {
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
-            }
-        });
-        
-        const data = await response.json();
-        console.log('✅ 기존 방식 트레이딩 정지:', data);
-        updateTradingStatus(false);
-        return data;
-    } catch (error) {
-        console.error('❌ 트레이딩 정지 실패:', error);
-        return { success: false, error: error.message };
-    }
-}
-
-// ==================== 계정 정보 업데이트 ====================
-async function updateAccountInfo() {
-    console.log('🔄 계정 정보 업데이트');
-    
-    // ✅ 모듈 사용 (우선시)
-    if (typeof BinanceAPI !== 'undefined' && typeof Utils !== 'undefined') {
+    async checkServerStatus() {
         try {
-            const accountInfo = await BinanceAPI.getAccountInfo();
-            if (accountInfo) {
-                const formattedBalance = Utils.formatNumber(accountInfo.balance, 2);
-                document.getElementById('balance').textContent = formattedBalance;
-                console.log('✅ 모듈로 계정 정보 업데이트:', formattedBalance);
-                return;
-            }
+            const health = await this.api.checkHealth();
+            this.updateServerStatus('connected', '서버 연결됨');
         } catch (error) {
-            console.error('모듈 계정 정보 조회 실패, 기존 방식으로 폴백');
+            this.updateServerStatus('error', '서버 연결 실패');
         }
     }
-    
-    // ✅ 기존 방식 (폴백)
-    try {
-        const balanceResponse = await fetch('/api/account/balance', {
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
+
+    async loadDashboardData() {
+        try {
+            // 여러 API를 병렬로 호출
+            const [dashboardData, accountInfo, positions] = await Promise.all([
+                this.api.getDashboardData(),
+                this.api.getAccountInfo(),
+                this.api.getOpenPositions()
+            ]);
+
+            this.updateAccountInfo(accountInfo);
+            this.updatePositions(positions);
+            this.updateMarketData(dashboardData);
+            
+        } catch (error) {
+            console.error('대시보드 데이터 로드 실패:', error);
+            this.showError('데이터를 불러오는데 실패했습니다.');
+        }
+    }
+
+    updateAccountInfo(accountData) {
+        const accountElement = document.getElementById('accountInfo');
+        if (accountElement) {
+            accountElement.innerHTML = `
+                <div class="account-summary">
+                    <h3>계좌 정보</h3>
+                    <p>총 자산: $${accountData.totalBalance?.toLocaleString() || '0'}</p>
+                    <p>사용 가능: $${accountData.availableBalance?.toLocaleString() || '0'}</p>
+                </div>
+            `;
+        }
+
+        // 잔고 목록 업데이트
+        this.updateBalances(accountData.balances || []);
+    }
+
+    updateBalances(balances) {
+        const balancesElement = document.getElementById('balancesList');
+        if (balancesElement) {
+            balancesElement.innerHTML = balances
+                .filter(balance => parseFloat(balance.usdValue) > 1)
+                .map(balance => `
+                    <div class="balance-item">
+                        <span class="asset">${balance.asset}</span>
+                        <span class="amount">${parseFloat(balance.free).toFixed(4)}</span>
+                        <span class="usd-value">$${parseFloat(balance.usdValue).toLocaleString()}</span>
+                    </div>
+                `).join('');
+        }
+    }
+
+    updatePositions(positions) {
+        const positionsElement = document.getElementById('positionsList');
+        if (positionsElement) {
+            if (positions && positions.length > 0) {
+                positionsElement.innerHTML = positions.map(position => `
+                    <div class="position-item ${position.pnl >= 0 ? 'profit' : 'loss'}">
+                        <div class="symbol">${position.symbol}</div>
+                        <div class="amount">${position.amount}</div>
+                        <div class="entry-price">$${position.entryPrice}</div>
+                        <div class="current-price">$${position.currentPrice}</div>
+                        <div class="pnl">${position.pnl >= 0 ? '+' : ''}${position.pnl}</div>
+                        <div class="pnl-percent">${position.pnlPercent}%</div>
+                    </div>
+                `).join('');
+            } else {
+                positionsElement.innerHTML = '<div class="no-positions">오픈 포지션이 없습니다.</div>';
             }
-        });
-        
-        const balance = await balanceResponse.json();
-        document.getElementById('balance').innerText = JSON.stringify(balance);
-        console.log('✅ 기존 방식 계정 정보 업데이트:', balance);
-    } catch (error) {
-        console.error('❌ 계정 정보 업데이트 실패:', error);
+        }
     }
-}
 
-// ==================== 주기적 데이터 업데이트 ====================
-function startPeriodicUpdates() {
-    // 5초마다 계정 정보 업데이트
-    setInterval(async () => {
-        await updateAccountInfo();
-        
-        // 포지션 정보도 similar하게 업데이트
-        await updatePositions();
-        
-        // 주문 내역 업데이트
-        await updateOrders();
-    }, 5000);
-}
-
-async function updatePositions() {
-    // ✅ 모듈이나 기존 방식으로 포지션 업데이트
-    console.log('📊 포지션 정보 업데이트');
-}
-
-async function updateOrders() {
-    // ✅ 모듈이나 기존 방식으로 주문 내역 업데이트
-    console.log('📋 주문 내역 업데이트');
-}
-
-// ==================== 대시보드 초기화 ====================
-function initializeDashboard() {
-    console.log('🎯 대시보드 초기화 시작');
-    
-    // ✅ 모듈 테스트
-    if (window.DeepSignal && window.DeepSignal.get) {
-        console.log('✅ DeepSignal 모듈 로드됨');
-        const api = DeepSignal.get('api');
-        const utils = DeepSignal.get('utils');
-        const trading = DeepSignal.get('trading');
-        const charts = DeepSignal.get('charts');
-        
-        // 모듈 사용 예시
-        api.getAccountInfo().then(account => {
-            if (account && account.balance) {
-                const formattedBalance = utils.formatNumber(account.balance, 2);
-                document.getElementById('balance').textContent = formattedBalance;
-            }
-        });
-    } else if (typeof BinanceAPI !== 'undefined' && typeof Utils !== 'undefined') {
-        console.log('✅ 개별 모듈 로드됨');
-        // 개별 모듈 사용
-    } else {
-        console.log('ℹ️ 모듈이 로드되지 않음, 기존 방식 사용');
-    }
-    
-    // 기존 초기화 코드 유지
-    updateBalance();
-    loadPositions();
-    
-    // 주기적 업데이트 시작
-    startPeriodicUpdates();
-}
-
-// ==================== 기존 함수들 유지 ====================
-function updateBalance() {
-    // 기존 잔고 업데이트 코드 유지
-    console.log('💳 잔고 업데이트');
-}
-
-function loadPositions() {
-    // 기존 포지션 로드 코드 유지
-    console.log('📈 포지션 로드');
-}
-
-function updateTradingStatus(isActive) {
-    // 트레이딩 상태 UI 업데이트
-    const statusElement = document.getElementById('tradingStatus');
-    if (statusElement) {
-        statusElement.textContent = isActive ? '실행 중' : '중지됨';
-        statusElement.className = isActive ? 'status-active' : 'status-inactive';
-    }
-    
-    // 버튼 상태 업데이트
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    
-    if (startBtn) startBtn.disabled = isActive;
-    if (stopBtn) stopBtn.disabled = !isActive;
-}
-
-// ==================== 유틸리티 함수들 ====================
-function formatNumber(num, decimals = 2) {
-    // ✅ 모듈 사용 (우선시)
-    if (typeof Utils !== 'undefined') {
-        return Utils.formatNumber(num, decimals);
-    }
-    
-    // ✅ 기존 방식 (폴백)
-    if (typeof num === 'number') {
-        if (num === Math.floor(num)) {
-            return num.toLocaleString();
-        } else {
-            return num.toLocaleString(undefined, { 
-                minimumFractionDigits: decimals, 
-                maximumFractionDigits: decimals 
+    updateMarketData(marketData) {
+        // 시장 데이터 업데이트
+        const marketElement = document.getElementById('marketData');
+        if (marketElement && marketData.prices) {
+            // 가격 정보 업데이트
+            Object.entries(marketData.prices).forEach(([symbol, price]) => {
+                const priceElement = document.getElementById(`price-${symbol}`);
+                if (priceElement) {
+                    priceElement.textContent = `$${parseFloat(price).toLocaleString()}`;
+                }
             });
         }
     }
-    return '0';
+
+    updateServerStatus(status, message) {
+        const statusElement = document.getElementById('serverStatus');
+        if (statusElement) {
+            statusElement.className = `status ${status}`;
+            statusElement.textContent = message;
+        }
+    }
+
+    startAutoRefresh() {
+        if (this.updateInterval) {
+            clearInterval(this.updateInterval);
+        }
+
+        this.updateInterval = setInterval(async () => {
+            if (this.isAutoRefresh) {
+                await this.loadDashboardData();
+            }
+        }, 5000); // 5초마다 업데이트
+    }
+
+    setupEventListeners() {
+        // 새로고침 버튼
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', () => {
+                this.loadDashboardData();
+            });
+        }
+
+        // 자동 새로고침 토글
+        const autoRefreshToggle = document.getElementById('autoRefreshToggle');
+        if (autoRefreshToggle) {
+            autoRefreshToggle.addEventListener('change', (e) => {
+                this.isAutoRefresh = e.target.checked;
+            });
+        }
+    }
+
+    showError(message) {
+        // 에러 메시지 표시 (기존 알림 시스템 활용)
+        console.error('대시보드 오류:', message);
+        alert(message); // 임시로 alert 사용, 실제로는 토스트 메시지로 변경
+    }
 }
 
-function formatCurrency(amount, currency = 'USD') {
-    // ✅ 모듈 사용 (우선시)
-    if (typeof Utils !== 'undefined' && Utils.formatCurrency) {
-        return Utils.formatCurrency(amount, currency);
-    }
-    
-    // ✅ 기존 방식 (폴백)
-    return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currency
-    }).format(amount);
-}
-
-// ==================== 이벤트 리스너 ====================
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM 로드 완료, 대시보드 초기화 시작');
-    
-    // 대시보드 초기화
-    initializeDashboard();
-    
-    // 버튼 이벤트 리스너 설정
-    const startBtn = document.getElementById('startBtn');
-    const stopBtn = document.getElementById('stopBtn');
-    
-    if (startBtn) {
-        startBtn.addEventListener('click', startTrading);
-    }
-    
-    if (stopBtn) {
-        stopBtn.addEventListener('click', stopTrading);
-    }
-    
-    // 모듈 테스트
-    setTimeout(() => {
-        console.log('🧪 모듈 테스트:');
-        console.log('- Utils:', typeof Utils);
-        console.log('- BinanceAPI:', typeof BinanceAPI);
-        console.log('- TradingEngine:', typeof TradingEngine);
-        console.log('- ChartManager:', typeof ChartManager);
-        console.log('- DeepSignal:', typeof DeepSignal);
-    }, 1000);
+// 대시보드 초기화
+document.addEventListener('DOMContentLoaded', () => {
+    window.dashboard = new Dashboard();
 });
-
-// ==================== 글로벌 함수 (개발용) ====================
-window.testTrading = function() {
-    console.log('🧪 테스트 트레이딩 실행');
-    startTrading().then(result => {
-        console.log('테스트 결과:', result);
-    });
-};
-
-window.testModules = function() {
-    console.log('🔧 모듈 테스트:');
-    
-    if (typeof Utils !== 'undefined') {
-        console.log('✅ Utils 작동:', Utils.formatNumber(1234.567));
-        Utils.storage.set('test', '모듈 연결 성공!');
-        console.log('✅ Storage 작동:', Utils.storage.get('test'));
-    }
-    
-    if (typeof TradingEngine !== 'undefined') {
-        console.log('✅ TradingEngine 작동:', TradingEngine.startTrading('test', {}));
-    }
-};
-
-console.log('✅ dashboard.js 로드 완료');

@@ -1,0 +1,68 @@
+/* TradingControl.css */
+
+.trading-control .card {
+  margin-bottom: 2rem;
+}
+
+.trading-config .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+}
+
+.trading-config label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #848e9c;
+  font-weight: 600;
+}
+
+.trading-config input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  background-color: var(--background-color);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  color: var(--text-color);
+  font-size: 1rem;
+}
+
+.trading-config input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.trading-actions .actions-grid {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.trading-actions .actions-grid button {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  border: none;
+}
+
+.trading-actions .start-btn {
+  background-color: var(--profit-color);
+  color: white;
+}
+
+.trading-actions .stop-btn {
+  background-color: var(--loss-color);
+  color: white;
+}
+
+.trading-actions .refresh-btn {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.predictions-section .stat-card {
+  border-left-width: 4px;
+  border-left-style: solid;
+}

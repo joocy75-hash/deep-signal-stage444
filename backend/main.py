@@ -1,92 +1,212 @@
-# main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from binance.client import Client
-from binance.exceptions import BinanceAPIException
 from pydantic import BaseModel
+from binance.client import Client
+import uvicorn
+import time
+from typing import Optional, Dict
 
 app = FastAPI()
 
-# CORS 설정 - 프론트엔드(포트 5173)에서 접속 허용
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-class ApiKeys(BaseModel):
-    api_key: str
-    secret_key: str
+# 전역 변수
+binance_clients = {}
+active_trading = {}
 
-# Binance 클라이언트 전역 변수
-binance_client = None
+class BinanceConfig(BaseModel):
+    apiKey: str
+    secretKey: str
+    useTestnet: bool = True
+
+class TradingConfig(BaseModel):
+    strategy: str
+    symbol: str = "BTCUSDT"
+    leverage: int = 5
 
 @app.get("/")
 async def root():
-    return {"message": "백엔드 서버 실행 중!"}
+    return {"message": "DeepSignal 백엔드 실행 중"}
 
-@app.get("/api/test")
-async def test():
-    return {"status": "success", "message": "테스트 연결 성공"}
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "DeepSignal 백엔드 실행 중"}
 
-@app.post("/api/connect")
-async def connect_binance(keys: ApiKeys):
-    global binance_client
+@app.post("/api/binance/test-connection")
+async def test_binance_connection(config: BinanceConfig):
     try:
-        # 테스트넷 클라이언트 생성
-        binance_client = Client(
-            api_key=keys.api_key,
-            api_secret=keys.secret_key,
-            testnet=True  # 테스트넷 사용
-        )
+        if config.useTestnet:
+            client = Client(config.apiKey, config.secretKey, testnet=True)
+        else:
+            client = Client(config.apiKey, config.secretKey)
         
-        # 연결 테스트 (BTCUSDT 가격 조회)
-        btc_price = binance_client.get_symbol_ticker(symbol="BTCUSDT")
+        # 연결 테스트
+        account = client.get_account()
+        return {
+            "success": True, 
+            "message": "바이낸스 연결 성공",
+            "data": {
+                "canTrade": account.get('canTrade', False),
+                "balances": account.get('balances', [])
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False, 
+            "message": f"바이낸스 연결 실패: {str(e)}"
+        }
+
+@app.post("/api/binance/connect")
+async def connect_binance(config: BinanceConfig):
+    try:
+        client_id = f"{config.apiKey[:10]}_{int(time.time())}"
+        
+        if config.useTestnet:
+            client = Client(config.apiKey, config.secretKey, testnet=True)
+        else:
+            client = Client(config.apiKey, config.secretKey)
+        
+        binance_clients[client_id] = client
+        active_trading[client_id] = False
         
         return {
-            "status": "success",
-            "message": "Binance API 연결 성공!",
-            "btc_price": btc_price['price']
+            "success": True,
+            "message": "바이낸스 연결 성공",
+            "clientId": client_id
         }
-    except BinanceAPIException as e:
-        raise HTTPException(status_code=400, detail=f"Binance API 오류: {e}")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"서버 오류: {e}")
+        return {
+            "success": False, 
+            "message": f"바이낸스 연결 실패: {str(e)}"
+        }
 
-@app.get("/api/balance")
-async def get_balance():
-    global binance_client
-    if not binance_client:
-        raise HTTPException(status_code=400, detail="먼저 API에 연결해주세요.")
-    
+@app.get("/api/binance/account")
+async def get_account_info(clientId: str):
     try:
-        account = binance_client.get_account()
-        balances = []
-        for balance in account['balances']:
-            if float(balance['free']) > 0 or float(balance['locked']) > 0:
-                balances.append({
-                    'asset': balance['asset'],
-                    'free': balance['free'],
-                    'locked': balance['locked']
-                })
-        return {"balances": balances}
+        if clientId not in binance_clients:
+            raise HTTPException(status_code=400, detail="클라이언트를 찾을 수 없습니다")
+        
+        client = binance_clients[clientId]
+        account = client.get_account()
+        
+        # USDT 잔고
+        usdt_balance = next((item for item in account['balances'] if item['asset'] == 'USDT'), None)
+        balance = float(usdt_balance['free']) if usdt_balance else 1000.0  # 기본값 1000 USDT
+        
+        # 시뮬레이션 데이터
+        positions = [
+            {
+                "symbol": "BTCUSDT",
+                "side": "BUY",
+                "quantity": 0.001,
+                "entryPrice": 43000.0,
+                "currentPrice": 43250.0,
+                "pnl": 0.25
+            }
+        ]
+        
+        return {
+            "success": True,
+            "data": {
+                "balance": balance,
+                "totalAssetValue": balance + 2.5,
+                "positions": positions
+            }
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "success": False,
+            "message": f"계정 정보 조회 실패: {str(e)}"
+        }
 
-@app.get("/api/ticker/{symbol}")
-async def get_ticker(symbol: str):
-    global binance_client
-    if not binance_client:
-        raise HTTPException(status_code=400, detail="먼저 API에 연결해주세요.")
-    
+@app.get("/api/binance/prices")
+async def get_crypto_prices(symbol: str = "BTCUSDT"):
     try:
-        ticker = binance_client.get_symbol_ticker(symbol=symbol)
-        return ticker
+        # 시뮬레이션 가격 데이터
+        import random
+        price = 43000 + random.uniform(-100, 100)
+        
+        return {
+            "success": True,
+            "data": {
+                "symbol": symbol,
+                "price": round(price, 2)
+            }
+        }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        return {
+            "success": False,
+            "message": f"가격 조회 실패: {str(e)}"
+        }
+
+@app.post("/api/trading/start")
+async def start_trading(config: TradingConfig, clientId: str):
+    try:
+        if clientId not in binance_clients:
+            raise HTTPException(status_code=400, detail="클라이언트를 찾을 수 없습니다")
+        
+        active_trading[clientId] = True
+        
+        return {
+            "success": True,
+            "message": f"{config.strategy} 전략으로 트레이딩 시작",
+            "data": {
+                "strategy": config.strategy,
+                "symbol": config.symbol,
+                "leverage": config.leverage,
+                "status": "active"
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"트레이딩 시작 실패: {str(e)}"
+        }
+
+@app.post("/api/trading/stop")
+async def stop_trading(clientId: str):
+    try:
+        if clientId not in binance_clients:
+            raise HTTPException(status_code=400, detail="클라이언트를 찾을 수 없습니다")
+        
+        active_trading[clientId] = False
+        
+        return {
+            "success": True,
+            "message": "트레이딩 중지",
+            "data": {
+                "status": "stopped"
+            }
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"트레이딩 중지 실패: {str(e)}"
+        }
+
+@app.get("/api/ai/signal")
+async def get_ai_signal(symbol: str = "BTCUSDT"):
+    import random
+    
+    signals = ["STRONG_BUY", "BUY", "HOLD", "SELL", "STRONG_SELL"]
+    confidence = random.uniform(0.5, 0.95)
+    signal = random.choice(signals)
+    
+    return {
+        "success": True,
+        "data": {
+            "symbol": symbol,
+            "signal": signal,
+            "confidence": confidence,
+            "timestamp": int(time.time())
+        }
+    }
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run("main:app", host="0.0.0.0", port=8001, reload=True)

@@ -1,0 +1,51 @@
+// services/binancePublicService.js 생성
+const Binance = require('node-binance-api');
+
+class BinancePublicService {
+  constructor() {
+    this.binance = new Binance().options({
+      // API 키 없이 공개 데이터만 사용
+      useServerTime: true,
+      reconnect: true,
+      test: process.env.BINANCE_TESTNET === 'true',
+      verbose: true
+    });
+  }
+
+  // 공개 데이터만 조회 (API 키 불필요)
+  async getPublicData() {
+    try {
+      const [prices, time, btcChart] = await Promise.all([
+        this.binance.prices(),
+        this.binance.time(),
+        this.binance.candlesticks('BTCUSDT', '1h', null, { limit: 24 })
+      ]);
+
+      return {
+        success: true,
+        data: {
+          prices: {
+            BTCUSDT: prices.BTCUSDT,
+            ETHUSDT: prices.ETHUSDT,
+            ADAUSDT: prices.ADAUSDT
+          },
+          serverTime: new Date(time),
+          btcChart: btcChart.map(candle => ({
+            time: new Date(candle[0]),
+            open: parseFloat(candle[1]),
+            high: parseFloat(candle[2]),
+            low: parseFloat(candle[3]),
+            close: parseFloat(candle[4])
+          }))
+        }
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+}
+
+module.exports = BinancePublicService;

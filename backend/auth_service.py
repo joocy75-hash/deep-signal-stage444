@@ -1,60 +1,23 @@
-from datetime import datetime, timedelta
-from typing import Optional
-from jose import JWTError, jwt
 from passlib.context import CryptContext
-from sqlalchemy.orm import Session
-from models.models.user import User
-from schemas.user import UserCreate, UserLogin
-import os
+import hashlib
 
-# 비밀키 (실제 운영에서는 환경변수로 관리)
-SECRET_KEY = "your-secret-key-here-change-in-production"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+# 비밀번호 해싱 (bcrypt 사용 시도, 실패시 SHA256 폴백)
+try:
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    BCrypt_AVAILABLE = True
+except:
+    BCrypt_AVAILABLE = False
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if BCrypt_AVAILABLE:
+        return pwd_context.verify(plain_password, hashed_password)
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+        # SHA256 폴백
+        return hashlib.sha256(plain_password.encode()).hexdigest() == hashed_password
 
-def authenticate_user(db: Session, email: str, password: str):
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-def create_user(db: Session, user: UserCreate):
-    # 이메일 중복 확인
-    existing_user = db.query(User).filter(User.email == user.email).first()
-    if existing_user:
-        return None, "이미 등록된 이메일입니다."
-    
-    # 비밀번호 해싱
-    hashed_password = get_password_hash(user.password)
-    
-    # 사용자 생성
-    db_user = User(
-        email=user.email,
-        hashed_password=hashed_password,
-        full_name=user.full_name
-    )
-    db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
-    
-    return db_user, "회원가입이 완료되었습니다."
+def get_password_hash(password: str) -> str:
+    if BCrypt_AVAILABLE:
+        return pwd_context.hash(password)
+    else:
+        # SHA256 폴백
+        return hashlib.sha256(password.encode()).hexdigest()

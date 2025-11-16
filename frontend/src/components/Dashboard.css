@@ -1,0 +1,110 @@
+/* Dashboard.css */
+
+:root {
+  --background-color: #131722;
+  --card-background-color: #1e222d;
+  --text-color: #d1d4dc;
+  --primary-color: #2962ff;
+  --profit-color: #00b894;
+  --loss-color: #d63031;
+  --border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dashboard {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+}
+
+.loading, .error {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-size: 1.2rem;
+}
+
+.error button {
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.card {
+  background-color: var(--card-background-color);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  border: 1px solid var(--border-color);
+}
+
+.card h2, .card h3 {
+  margin-top: 0;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 1rem;
+  margin-bottom: 1rem;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.stat-card {
+  background-color: var(--background-color);
+  padding: 1.5rem;
+  border-radius: 6px;
+  border: 1px solid var(--border-color);
+}
+
+.stat-card h3 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1rem;
+  color: #848e9c;
+  border: none;
+}
+
+.stat-card p {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.profit {
+  color: var(--profit-color);
+}
+
+.loss {
+  color: var(--loss-color);
+}
+
+.chart-section {
+  margin-top: 2rem;
+}
+
+.positions-section table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+}
+
+.positions-section th, .positions-section td {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.positions-section th {
+  font-size: 0.85rem;
+  color: #848e9c;
+  text-transform: uppercase;
+}
+
+.positions-section tbody tr:hover {
+  background-color: var(--background-color);
+}

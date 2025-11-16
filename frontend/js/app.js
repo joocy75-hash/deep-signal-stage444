@@ -1,90 +1,144 @@
-// 프론트엔드 메인 로직
-const API_BASE = "http://localhost:8000";
-
+// 프론트엔드 메인 로직 - 백엔드 API와 완전 연동
 class TradingApp {
     constructor() {
+        this.api = window.apiService;
         this.isConnected = false;
         this.isTrading = false;
+        this.currentPrices = {};
         this.init();
     }
 
     init() {
         this.bindEvents();
-        this.loadStatus();
+        this.checkBackendStatus();
         this.startPriceUpdates();
-        setInterval(() => this.loadStatus(), 5000);
+        setInterval(() => this.checkBackendStatus(), 10000);
     }
 
     bindEvents() {
-        document.getElementById('connectBtn').addEventListener('click', () => this.connectApi());
-        document.getElementById('startTradingBtn').addEventListener('click', () => this.startTrading());
-        document.getElementById('stopTradingBtn').addEventListener('click', () => this.stopTrading());
+        // 로그인/회원가입 이벤트
+        const loginBtn = document.getElementById('loginBtn');
+        const registerBtn = document.getElementById('registerBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        
+        if (loginBtn) {
+            loginBtn.addEventListener('click', () => this.handleLogin());
+        }
+        
+        if (registerBtn) {
+            registerBtn.addEventListener('click', () => this.handleRegister());
+        }
+        
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => this.handleLogout());
+        }
+
+        // 트레이딩 이벤트
+        const startBtn = document.getElementById('startTradingBtn');
+        const stopBtn = document.getElementById('stopTradingBtn');
+        
+        if (startBtn) {
+            startBtn.addEventListener('click', () => this.startTrading());
+        }
+        
+        if (stopBtn) {
+            stopBtn.addEventListener('click', () => this.stopTrading());
+        }
+
+        // API 키 등록 이벤트
+        const apiKeyBtn = document.getElementById('registerApiKeyBtn');
+        if (apiKeyBtn) {
+            apiKeyBtn.addEventListener('click', () => this.registerApiKeys());
+        }
     }
 
-    async connectApi() {
-        const apiKey = document.getElementById('apiKey').value.trim();
-        const apiSecret = document.getElementById('apiSecret').value.trim();
+    async handleLogin() {
+        const email = document.getElementById('loginEmail').value;
+        const password = document.getElementById('loginPassword').value;
 
-        if (!apiKey || !apiSecret) {
-            this.showMessage('❌ API Key와 Secret을 모두 입력해주세요', 'error');
+        if (!email || !password) {
+            this.showMessage('❌ 이메일과 비밀번호를 입력해주세요', 'error');
             return;
         }
 
-        this.showMessage('🔗 바이낸스에 연결중...', 'info');
-
         try {
-            const response = await fetch(`${API_BASE}/api/connect`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    api_key: apiKey, 
-                    api_secret: apiSecret 
-                })
-            });
-
-            const result = await response.json();
-            
-            if (response.ok) {
-                this.isConnected = true;
+            const result = await this.api.login({ email, password });
+            if (result.success) {
+                this.showMessage('✅ 로그인 성공!', 'success');
                 this.updateUI();
-                this.showMessage('✅ 바이낸스 API 연결 성공!', 'success');
             } else {
-                this.showMessage(`❌ 연결 실패: ${result.detail}`, 'error');
+                this.showMessage(`❌ 로그인 실패: ${result.error}`, 'error');
             }
         } catch (error) {
-            this.showMessage('❌ 서버 연결 실패 - 백엔드가 실행중인지 확인해주세요', 'error');
+            this.showMessage('❌ 서버 연결 실패', 'error');
         }
     }
 
+    async handleRegister() {
+        const email = document.getElementById('registerEmail').value;
+        const password = document.getElementById('registerPassword').value;
+        const fullName = document.getElementById('registerName').value;
+
+        if (!email || !password || !fullName) {
+            this.showMessage('❌ 모든 필드를 입력해주세요', 'error');
+            return;
+        }
+
+        try {
+            const result = await this.api.register({
+                email,
+                password,
+                full_name: fullName
+            });
+
+            if (result.success) {
+                this.showMessage('✅ 회원가입 성공! 로그인해주세요.', 'success');
+                // 회원가입 폼 초기화
+                document.getElementById('registerEmail').value = '';
+                document.getElementById('registerPassword').value = '';
+                document.getElementById('registerName').value = '';
+            } else {
+                this.showMessage(`❌ 회원가입 실패: ${result.error}`, 'error');
+            }
+        } catch (error) {
+            this.showMessage('❌ 서버 연결 실패', 'error');
+        }
+    }
+
+    async handleLogout() {
+        // 간단한 로그아웃 처리
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        this.showMessage('✅ 로그아웃 되었습니다.', 'success');
+        this.updateUI();
+    }
+
     async startTrading() {
-        const symbol = document.getElementById('symbol').value;
-        const quantity = document.getElementById('quantity').value;
+        const symbol = document.getElementById('symbol').value || 'BTCUSDT';
+        const quantity = document.getElementById('quantity').value || '0.001';
 
         if (!quantity || parseFloat(quantity) <= 0) {
             this.showMessage('❌ 유효한 거래 수량을 입력해주세요', 'error');
             return;
         }
 
-        this.showMessage('🚀 자동매매 시작중...', 'info');
+        this.showMessage('🚀 AI 자동매매 시작중...', 'info');
 
         try {
-            const response = await fetch(`${API_BASE}/api/trading/start`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    symbol: symbol, 
-                    quantity: parseFloat(quantity)
-                })
+            const result = await this.api.startAutoTrading({
+                symbols: [symbol],
+                investmentPerTrade: parseFloat(quantity),
+                maxOpenTrades: 1,
+                riskRewardRatio: 1.5,
+                checkInterval: 60000
             });
 
-            const result = await response.json();
-            
-            if (response.ok) {
+            if (result.success) {
                 this.isTrading = true;
+                this.showMessage(`✅ ${symbol} AI 자동매매 시작!`, 'success');
                 this.updateUI();
-                this.showMessage(`✅ ${symbol} 자동매매 시작! (시뮬레이션 모드)`, 'success');
             } else {
-                this.showMessage(`❌ 시작 실패: ${result.detail}`, 'error');
+                this.showMessage(`❌ 시작 실패: ${result.error}`, 'error');
             }
         } catch (error) {
             this.showMessage('❌ 서버 연결 실패', 'error');
@@ -92,69 +146,86 @@ class TradingApp {
     }
 
     async stopTrading() {
-        this.showMessage('🛑 자동매매 중지중...', 'info');
+        this.showMessage('🛑 AI 자동매매 중지중...', 'info');
 
         try {
-            const response = await fetch(`${API_BASE}/api/trading/stop`, {
-                method: 'POST'
-            });
-
-            const result = await response.json();
-            
-            if (response.ok) {
+            const result = await this.api.stopAutoTrading();
+            if (result.success) {
                 this.isTrading = false;
+                this.showMessage('✅ AI 자동매매 중지됨!', 'success');
                 this.updateUI();
-                this.showMessage('✅ 자동매매 중지됨!', 'success');
+            } else {
+                this.showMessage(`❌ 중지 실패: ${result.error}`, 'error');
             }
         } catch (error) {
             this.showMessage('❌ 서버 연결 실패', 'error');
         }
     }
 
-    async loadStatus() {
+    async registerApiKeys() {
+        const exchangeName = document.getElementById('exchangeName').value || 'binance';
+        const apiKey = document.getElementById('apiKey').value;
+        const secretKey = document.getElementById('apiSecret').value;
+
+        if (!apiKey || !secretKey) {
+            this.showMessage('❌ API Key와 Secret을 모두 입력해주세요', 'error');
+            return;
+        }
+
+        this.showMessage('🔑 API 키 등록중...', 'info');
+
         try {
-            const response = await fetch(`${API_BASE}/api/status`);
-            const result = await response.json();
+            const result = await this.api.registerApiKeys({
+                exchange_name: exchangeName,
+                api_key: apiKey,
+                secret_key: secretKey
+            });
             
-            this.isConnected = result.is_connected;
-            this.isTrading = result.is_trading;
-            
-            // 포지션 표시
-            const positionsDiv = document.getElementById('positions');
-            if (result.positions && result.positions.length > 0) {
-                positionsDiv.innerHTML = result.positions.map(p => `
-                    <div class="position-item ${parseFloat(p.positionAmt) > 0 ? 'buy' : ''}">
-                        <strong>${p.symbol}</strong><br>
-                        수량: ${p.positionAmt}<br>
-                        진입가: ${p.entryPrice || 'N/A'}<br>
-                        미실현损益: ${p.unRealizedProfit || '0.00'}
-                    </div>
-                `).join('');
+            if (result.success) {
+                this.showMessage('✅ API 키 등록 성공!', 'success');
+                // 입력 필드 초기화
+                document.getElementById('apiKey').value = '';
+                document.getElementById('apiSecret').value = '';
             } else {
-                positionsDiv.innerHTML = '<div class="no-position">보유 포지션이 없습니다</div>';
+                this.showMessage(`❌ 등록 실패: ${result.detail || result.error}`, 'error');
             }
-            
+        } catch (error) {
+            this.showMessage('❌ 서버 연결 실패', 'error');
+        }
+    }
+
+    async checkBackendStatus() {
+        try {
+            const result = await this.api.checkHealth();
+            this.isConnected = result.status === 'OK';
             this.updateUI();
         } catch (error) {
-            console.log('상태 로딩 실패:', error);
+            this.isConnected = false;
+            this.updateUI();
         }
     }
 
     async startPriceUpdates() {
         // 실시간 가격 업데이트
         setInterval(async () => {
+            if (!this.isConnected) return;
+
             try {
-                const symbol = document.getElementById('symbol').value;
-                const response = await fetch(`${API_BASE}/api/price/${symbol}`);
-                const result = await response.json();
+                const symbol = document.getElementById('symbol').value || 'BTCUSDT';
+                const result = await this.api.getCurrentPrice(symbol);
                 
-                if (result.price && result.price !== '0') {
+                if (result && result.price) {
                     const price = parseFloat(result.price).toLocaleString('en-US', {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2
                     });
-                    document.getElementById('currentPrice').textContent = 
-                        `${symbol}: $${price}`;
+                    
+                    const priceElement = document.getElementById('currentPrice');
+                    if (priceElement) {
+                        priceElement.textContent = `${symbol}: $${price}`;
+                    }
+                    
+                    this.currentPrices[symbol] = result.price;
                 }
             } catch (error) {
                 console.log('가격 업데이트 실패:', error);
@@ -163,23 +234,23 @@ class TradingApp {
     }
 
     updateUI() {
-        // 연결 상태 업데이트
+        // 백엔드 연결 상태
         const connectionStatus = document.getElementById('connectionStatus');
-        connectionStatus.textContent = this.isConnected ? '🟢 연결됨' : '🔴 연결안됨';
-        connectionStatus.className = `status-value ${this.isConnected ? 'connected' : 'disconnected'}`;
+        if (connectionStatus) {
+            connectionStatus.textContent = this.isConnected ? '🟢 백엔드 연결됨' : '🔴 백엔드 연결안됨';
+            connectionStatus.className = `status ${this.isConnected ? 'connected' : 'disconnected'}`;
+        }
         
-        // 매매 상태 업데이트
-        const tradingStatus = document.getElementById('tradingStatus');
-        tradingStatus.textContent = this.isTrading ? '🟢 매매중' : '🔴 대기중';
-        tradingStatus.className = `status-value ${this.isTrading ? 'trading' : 'disconnected'}`;
+        // 트레이딩 버튼 상태
+        const startBtn = document.getElementById('startTradingBtn');
+        const stopBtn = document.getElementById('stopTradingBtn');
         
-        // 버튼 상태 업데이트
-        document.getElementById('startTradingBtn').disabled = !this.isConnected || this.isTrading;
-        document.getElementById('stopTradingBtn').disabled = !this.isTrading;
+        if (startBtn) startBtn.disabled = !this.isConnected || this.isTrading;
+        if (stopBtn) stopBtn.disabled = !this.isTrading;
     }
 
     showMessage(message, type) {
-        const messageDiv = document.getElementById('message');
+        const messageDiv = document.getElementById('message') || this.createMessageDiv();
         messageDiv.textContent = message;
         messageDiv.className = `message ${type}`;
         messageDiv.style.display = 'block';
@@ -188,23 +259,38 @@ class TradingApp {
             messageDiv.style.display = 'none';
         }, 5000);
     }
+    
+    createMessageDiv() {
+        const div = document.createElement('div');
+        div.id = 'message';
+        div.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 15px 20px;
+            border-radius: 5px;
+            color: white;
+            font-weight: bold;
+            z-index: 1000;
+            display: none;
+        `;
+        document.body.appendChild(div);
+        return div;
+    }
 }
 
 // 앱 시작
 document.addEventListener('DOMContentLoaded', () => {
-    new TradingApp();
+    window.tradingApp = new TradingApp();
+    
+    // CSS 동적 추가
+    const style = document.createElement('style');
+    style.textContent = `
+        .message.success { background: #28a745; }
+        .message.error { background: #dc3545; }
+        .message.info { background: #17a2b8; }
+        .status.connected { color: #28a745; }
+        .status.disconnected { color: #dc3545; }
+    `;
+    document.head.appendChild(style);
 });
-// src/App.js
-import React from 'react';
-import ApiConfig from './components/ApiConfig';
-import './App.css';
-
-function App() {
-  return (
-    <div className="App">
-      <ApiConfig />
-    </div>
-  );
-}
-
-export default App;

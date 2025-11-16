@@ -1,1011 +1,663 @@
 <!DOCTYPE html>
-<!-- CryptoJS 추가 -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepSignal 트레이딩 대시보드</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>DeepSignal · Bitcoin Pulse Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-    
-    <!-- 인증 체크 -->
-    <script>
-        // 간단한 인증 체크
-        if (!localStorage.getItem('isLoggedIn') && !sessionStorage.getItem('isLoggedIn')) {
-            alert('로그인이 필요합니다.');
-            window.location.href = 'index.html';
-        }
-    </script>
-    
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', 'Malgun Gothic', sans-serif;
+        :root {
+            --btc-orange: #f7931a;
+            --btc-glow: #ffb347;
+            --bg-dark: #030306;
+            --panel: rgba(9, 12, 22, 0.92);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --text-primary: #fefefe;
+            --text-muted: #99a0b5;
+            --accent: #36e6ad;
         }
-        
+
+        * { box-sizing: border-box; }
+
         body {
-            background: linear-gradient(135deg, #0f1b2f 0%, #1a2b44 100%);
-            color: #eaecef;
-            line-height: 1.6;
+            margin: 0;
+            font-family: 'SUIT', 'Pretendard', 'Segoe UI', sans-serif;
             min-height: 100vh;
+            color: var(--text-primary);
+            background: radial-gradient(circle at top, rgba(255, 195, 113, 0.2), var(--bg-dark) 50%);
+            overflow-x: hidden;
+            animation: aurora 18s ease-in-out infinite alternate;
         }
-        
-        .dashboard-container {
+
+        body::before,
+        body::after {
+            content: '';
+            position: fixed;
+            width: 280px;
+            height: 280px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(247,147,26,0.35), transparent 60%);
+            z-index: 0;
+            filter: blur(5px);
+            animation: float 12s linear infinite;
+        }
+
+        body::before { top: -60px; right: 5%; animation-delay: 0s; }
+        body::after { bottom: -60px; left: 8%; animation-delay: 4s; }
+
+        @keyframes aurora {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        @keyframes float {
+            0% { transform: translateY(0); opacity: 0.4; }
+            50% { transform: translateY(-20px); opacity: 0.7; }
+            100% { transform: translateY(0); opacity: 0.4; }
+        }
+
+        .app-shell {
+            position: relative;
+            z-index: 2;
             max-width: 1400px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 48px 24px 80px;
         }
-        
-        /* 헤더 스타일 */
-        .header {
+
+        .top-bar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 30px;
-            padding: 20px;
-            background: rgba(30, 35, 41, 0.8);
-            border-radius: 15px;
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            gap: 24px;
+            margin-bottom: 32px;
         }
-        
-        .logo {
-            font-size: 28px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #00d4aa 0%, #0099ff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+
+        .brand {
             display: flex;
             align-items: center;
+            gap: 20px;
         }
-        
-        .logo i {
-            margin-right: 10px;
-            font-size: 24px;
-        }
-        
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .user-avatar {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            background: linear-gradient(135deg, #f0b90b 0%, #f8d33a 100%);
+
+        .brand-mark {
+            width: 64px;
+            height: 64px;
+            border-radius: 24px;
+            background: linear-gradient(145deg, #f9aa4b, #ff7b02);
+            box-shadow: 0 10px 30px rgba(247, 147, 26, 0.45);
             display: flex;
             align-items: center;
             justify-content: center;
-            color: #1e2329;
-            font-weight: bold;
-            font-size: 16px;
+            font-size: 28px;
+            color: #121218;
+            font-weight: 700;
         }
-        
-        .connection-status {
+
+        .brand-copy small {
+            display: block;
+            text-transform: uppercase;
+            letter-spacing: 0.25em;
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        .brand-copy strong {
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+        }
+
+        .top-actions {
             display: flex;
             align-items: center;
-            background: rgba(255, 255, 255, 0.1);
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 14px;
+            gap: 12px;
         }
-        
-        .status-dot {
+
+        .btn {
+            border: none;
+            border-radius: 16px;
+            padding: 12px 22px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            color: #fff;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        }
+
+        .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-primary {
+            background: linear-gradient(120deg, #f7931a, #ffba6a);
+            color: #241400;
+            box-shadow: 0 12px 25px rgba(247, 147, 26, 0.4);
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 18px;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(0,0,0,0.25);
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        .status-chip .dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            margin-right: 8px;
-            animation: pulse 2s infinite;
+            box-shadow: 0 0 12px currentColor;
         }
-        
-        .status-connected {
-            background-color: #03a66d;
-        }
-        
-        .status-disconnected {
-            background-color: #e74c3c;
-        }
-        
-        .status-connecting {
-            background-color: #f0b90b;
-        }
-        
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-        
-        /* 정보 패널 */
-        .info-panel {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .info-card {
-            background: linear-gradient(135deg, #1e2329 0%, #2a2f36 100%);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
+
+        .status-chip.connected .dot { color: #36e6ad; background: #36e6ad; }
+        .status-chip.connecting .dot { color: #f7c948; background: #f7c948; }
+        .status-chip.disconnected .dot { color: #ff4d6d; background: #ff4d6d; }
+
+        .btc-hero {
             position: relative;
+            margin-bottom: 32px;
+            border-radius: 32px;
+            padding: 32px 32px 36px;
             overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: radial-gradient(circle at 20% 20%, rgba(255,196,132,0.3), rgba(7,10,20,0.95));
         }
-        
-        .info-card::before {
+
+        .btc-hero::after {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 3px;
-            background: linear-gradient(90deg, #00d4aa, #0099ff);
+            inset: 0;
+            background: url('https://assets.codepen.io/1462889/glow-lines.png') repeat;
+            opacity: 0.2;
+            mix-blend-mode: screen;
+            animation: drift 20s linear infinite;
         }
-        
-        .info-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
+
+        @keyframes drift {
+            from { transform: translateX(0); }
+            to { transform: translateX(-200px); }
         }
-        
-        .card-title {
-            font-size: 14px;
-            color: #848e9c;
-            margin-bottom: 10px;
-            font-weight: 500;
-        }
-        
-        .card-content {
+
+        .btc-hero-content {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 24px;
-            font-weight: 700;
+            flex-wrap: wrap;
+            gap: 32px;
+            position: relative;
+            z-index: 2;
         }
-        
-        .coin-logo {
-            width: 40px;
-            height: 40px;
+
+        .btc-copy {
+            flex: 1 1 320px;
+        }
+
+        .btc-copy h1 {
+            font-size: clamp(28px, 4vw, 42px);
+            margin: 0 0 12px;
+            line-height: 1.2;
+        }
+
+        .btc-copy p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 15px;
+        }
+
+        .btc-coin {
+            position: relative;
+            width: 180px;
+            height: 180px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #f0b90b 0%, #f8d33a 100%);
+            background: radial-gradient(circle, #ffe9c4 0%, #f7931a 50%, #b75b00 100%);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: bold;
-            color: #1e2329;
-            font-size: 14px;
+            font-size: 72px;
+            color: #231102;
+            box-shadow: 0 25px 60px rgba(247, 147, 26, 0.4);
+            animation: coinSpin 12s linear infinite;
         }
-        
-        .profit-positive {
-            color: #03a66d;
+
+        .btc-coin::after,
+        .btc-coin::before {
+            content: '';
+            position: absolute;
+            inset: -12px;
+            border-radius: 50%;
+            border: 2px dashed rgba(255,255,255,0.25);
+            animation: orbit 8s linear infinite;
         }
-        
-        .profit-negative {
-            color: #e74c3c;
+
+        .btc-coin::before {
+            border-style: solid;
+            border-color: rgba(255,255,255,0.12);
+            animation-duration: 14s;
         }
-        
-        /* 메인 콘텐츠 */
-        .main-content {
+
+        @keyframes coinSpin {
+            from { transform: rotateY(0deg); }
+            to { transform: rotateY(360deg); }
+        }
+
+        @keyframes orbit {
+            to { transform: rotate(360deg); }
+        }
+
+        .hero-metrics {
             display: grid;
-            grid-template-columns: 2fr 1fr;
-            gap: 25px;
-            margin-bottom: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 16px;
+            margin-top: 24px;
         }
-        
-        .chart-container {
-            background: rgba(30, 35, 41, 0.8);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+
+        .hero-metric {
+            padding: 14px 18px;
+            border-radius: 18px;
+            background: rgba(0,0,0,0.35);
+            border: 1px solid rgba(255,255,255,0.08);
         }
-        
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .chart-title {
-            font-size: 20px;
-            font-weight: 600;
-        }
-        
-        .chart-options {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        
-        .timeframe-options {
-            display: flex;
-            background: rgba(42, 47, 54, 0.8);
-            border-radius: 10px;
-            padding: 5px;
-            gap: 5px;
-        }
-        
-        .timeframe {
-            padding: 8px 15px;
-            border-radius: 8px;
+
+        .hero-metric span {
+            display: block;
             font-size: 12px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--text-muted);
+            margin-bottom: 8px;
         }
-        
-        .timeframe.active {
-            background: linear-gradient(135deg, #00d4aa 0%, #0099ff 100%);
-            color: white;
-        }
-        
-        .exchange-badge {
-            background: linear-gradient(135deg, #f0b90b 0%, #f8d33a 100%);
-            color: #1e2329;
-            padding: 8px 15px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 700;
-        }
-        
-        .chart-area {
-            height: 400px;
-            background: rgba(11, 14, 17, 0.8);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .chart-placeholder {
-            color: #848e9c;
-            font-size: 16px;
-            text-align: center;
-        }
-        
-        /* AI 컨트롤 패널 */
-        .ai-control-panel {
-            background: rgba(30, 35, 41, 0.8);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-        }
-        
-        .panel-title {
+
+        .hero-metric strong {
             font-size: 20px;
-            font-weight: 600;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
-        .strategy-selector {
-            margin-bottom: 25px;
-        }
-        
-        .strategy-dropdown {
-            width: 100%;
-            background: rgba(42, 47, 54, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            padding: 15px;
-            color: #eaecef;
-            font-size: 14px;
-            margin-bottom: 20px;
-            transition: all 0.3s ease;
-        }
-        
-        .strategy-dropdown:focus {
-            outline: none;
-            border-color: #00d4aa;
-            box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.2);
-        }
-        
-        .control-buttons {
+
+        .global-banner {
+            margin-bottom: 28px;
+            padding: 16px 20px;
+            border-radius: 18px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: rgba(0,0,0,0.35);
+            backdrop-filter: blur(14px);
             display: flex;
             gap: 12px;
+            align-items: center;
+            font-weight: 500;
         }
-        
-        .btn {
-            flex: 1;
-            padding: 15px;
-            border: none;
-            border-radius: 10px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-size: 14px;
+
+        .global-banner.success { border-color: rgba(54,230,173,0.4); color: #36e6ad; }
+        .global-banner.error { border-color: rgba(255,77,109,0.5); color: #ff7a93; }
+        .global-banner.info { border-color: rgba(247,147,26,0.5); color: var(--btc-glow); }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 18px;
+            margin-bottom: 30px;
+        }
+
+        .summary-card {
             position: relative;
             overflow: hidden;
+            padding: 20px;
+            border-radius: 24px;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: var(--panel);
+            backdrop-filter: blur(16px);
         }
-        
-        .btn::before {
+
+        .summary-card::after {
             content: '';
             position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-            transition: left 0.5s;
+            inset: 0;
+            background: radial-gradient(circle at top right, rgba(255,255,255,0.2), transparent 50%);
+            opacity: 0;
+            transition: opacity 0.4s;
         }
-        
-        .btn:hover::before {
-            left: 100%;
+
+        .summary-card:hover::after { opacity: 1; }
+
+        .summary-card h4 {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 13px;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
         }
-        
-        .btn-start {
-            background: linear-gradient(135deg, #03a66d 0%, #02c076 100%);
-            color: white;
+
+        .summary-value {
+            font-size: 34px;
+            font-weight: 600;
+            margin: 12px 0 6px;
         }
-        
-        .btn-stop {
-            background: linear-gradient(135deg, #e74c3c 0%, #f1948a 100%);
-            color: white;
-        }
-        
-        .btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
-        }
-        
-        .btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-        
-        .ai-signal {
-            background: rgba(42, 47, 54, 0.8);
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 25px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .signal-title {
-            font-size: 14px;
-            color: #848e9c;
-            margin-bottom: 10px;
-        }
-        
-        .signal-status {
-            font-size: 24px;
-            font-weight: 700;
-            color: #f0b90b;
-        }
-        
-        .system-status {
-            background: rgba(42, 47, 54, 0.8);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .status-item {
+
+        .summary-meta {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            color: var(--text-muted);
+            font-size: 13px;
         }
-        
-        .status-item:last-child {
-            margin-bottom: 0;
-            padding-bottom: 0;
-            border-bottom: none;
-        }
-        
-        .status-label {
-            font-size: 14px;
-            color: #848e9c;
-        }
-        
-        .status-value {
-            font-size: 16px;
-            font-weight: 600;
-        }
-        
-        /* 하단 패널 */
-        .bottom-panel {
+
+        .main-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 25px;
+            grid-template-columns: 3fr 2fr;
+            gap: 24px;
         }
-        
-        .positions-panel, .strategy-panel {
-            background: rgba(30, 35, 41, 0.8);
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
+
+        .panel {
+            border-radius: 28px;
+            padding: 26px;
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(16px);
         }
-        
+
         .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
-        .panel-title {
-            font-size: 18px;
-            font-weight: 600;
+
+        .panel-header h3 {
             margin: 0;
-            padding: 0;
-            border: none;
+            font-size: 20px;
         }
-        
-        .no-positions {
-            text-align: center;
-            padding: 60px 20px;
-            color: #848e9c;
-        }
-        
-        .no-positions i {
-            font-size: 48px;
-            margin-bottom: 15px;
-            color: #2a2f36;
-        }
-        
-        .strategy-content {
-            max-height: 300px;
-            overflow-y: auto;
-            padding-right: 10px;
-        }
-        
-        .strategy-content::-webkit-scrollbar {
-            width: 6px;
-        }
-        
-        .strategy-content::-webkit-scrollbar-track {
-            background: rgba(42, 47, 54, 0.8);
-            border-radius: 3px;
-        }
-        
-        .strategy-content::-webkit-scrollbar-thumb {
-            background: linear-gradient(135deg, #00d4aa 0%, #0099ff 100%);
-            border-radius: 3px;
-        }
-        
-        .strategy-section {
-            margin-bottom: 25px;
-        }
-        
-        .strategy-section-title {
-            font-size: 16px;
-            font-weight: 600;
-            margin-bottom: 10px;
-            color: #eaecef;
-        }
-        
-        .strategy-text {
-            font-size: 14px;
-            line-height: 1.6;
-            color: #9aa2ab;
-            white-space: pre-line;
-        }
-        
-        .backtest-result {
-            background: rgba(42, 47, 54, 0.8);
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-            text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .backtest-value {
-            font-size: 28px;
-            font-weight: 700;
-            color: #03a66d;
-            margin-top: 5px;
-        }
-        
-        /* 거래 내역 테이블 */
-        .trades-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        
-        .trades-table th {
-            background: rgba(42, 47, 54, 0.8);
-            padding: 12px 15px;
-            text-align: left;
-            font-weight: 600;
-            color: #848e9c;
+
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 999px;
             font-size: 12px;
-            border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
         }
-        
-        .trades-table td {
-            padding: 12px 15px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            font-size: 13px;
-        }
-        
-        .trade-buy {
-            color: #03a66d;
-            font-weight: 600;
-        }
-        
-        .trade-sell {
-            color: #e74c3c;
-            font-weight: 600;
-        }
-        
-        /* 로딩 스피너 */
-        .loading {
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            border: 3px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        /* 모달 스타일 */
-        .modal-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-color: rgba(0, 0, 0, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 10000;
-            backdrop-filter: blur(5px);
-        }
-        
-        .modal {
-            background: linear-gradient(135deg, #1e2329 0%, #2a2f36 100%);
-            border-radius: 20px;
-            padding: 30px;
-            width: 90%;
-            max-width: 500px;
-            max-height: 90vh;
-            overflow-y: auto;
-            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            animation: modalSlideIn 0.3s ease-out;
-        }
-        
-        @keyframes modalSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-50px) scale(0.9);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-        }
-        
-        .modal-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 25px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .modal-title {
-            font-size: 22px;
-            font-weight: 700;
-            background: linear-gradient(135deg, #00d4aa 0%, #0099ff 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        .close-modal {
-            background: none;
-            border: none;
-            color: #848e9c;
-            font-size: 28px;
-            cursor: pointer;
-            padding: 5px;
-            border-radius: 5px;
-            transition: all 0.3s ease;
-        }
-        
-        .close-modal:hover {
-            color: #eaecef;
-            background: rgba(255, 255, 255, 0.1);
-        }
-        
-        .form-group {
+
+        .control-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
             margin-bottom: 20px;
         }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 8px;
-            font-size: 14px;
-            color: #eaecef;
-            font-weight: 600;
-        }
-        
-        .form-input {
+
+        .input-field,
+        select.input-field {
             width: 100%;
-            padding: 15px;
-            background: rgba(42, 47, 54, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 10px;
-            color: #eaecef;
-            font-size: 14px;
-            transition: all 0.3s ease;
+            border-radius: 16px;
+            padding: 14px 16px;
+            border: 1px solid rgba(255,255,255,0.14);
+            background: rgba(0,0,0,0.3);
+            color: var(--text-primary);
+            font-weight: 500;
         }
-        
-        .form-input:focus {
-            outline: none;
-            border-color: #00d4aa;
-            box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.2);
-            background: rgba(42, 47, 54, 1);
+
+        .insight-list {
+            display: grid;
+            gap: 14px;
         }
-        
-        .form-help {
+
+        .insight-item {
+            padding: 16px;
+            border-radius: 18px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            text-align: left;
             font-size: 12px;
-            color: #848e9c;
-            margin-top: 8px;
-            line-height: 1.4;
+            opacity: 0.6;
+            padding-bottom: 12px;
+            letter-spacing: 0.12em;
         }
-        
-        .form-help a {
-            color: #00d4aa;
-            text-decoration: none;
+
+        tbody td {
+            padding: 14px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            font-size: 14px;
         }
-        
-        .form-help a:hover {
-            text-decoration: underline;
+
+        .pnl-positive { color: #36e6ad; }
+        .pnl-negative { color: #ff7a93; }
+
+        .modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(3,3,6,0.9);
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 80px;
+            z-index: 1000;
+            backdrop-filter: blur(6px);
         }
-        
+
+        .modal-card {
+            width: min(520px, 92vw);
+            background: #080a12;
+            border-radius: 28px;
+            padding: 32px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+
+        .modal-card h3 {
+            margin: 0 0 12px;
+            font-size: 24px;
+        }
+
+        .modal-desc {
+            margin-bottom: 20px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
         .modal-actions {
             display: flex;
             gap: 12px;
-            margin-top: 25px;
-            justify-content: flex-end;
+            flex-wrap: wrap;
+            margin-top: 24px;
         }
-        
-        .btn-secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: #eaecef;
-        }
-        
-        .btn-secondary:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        
-        .test-account-info {
-            background: rgba(42, 47, 54, 0.8);
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 25px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        
-        .test-account-info code {
-            background: rgba(0, 0, 0, 0.3);
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: monospace;
-            color: #00d4aa;
-        }
-        
-        .connection-message {
-            padding: 12px 15px;
-            border-radius: 8px;
-            margin-bottom: 20px;
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0,1fr));
+            gap: 12px;
             font-size: 14px;
-            font-weight: 500;
-            border-left: 4px solid;
         }
-        
-        .connection-message.info {
-            background: rgba(240, 185, 11, 0.1);
-            color: #f0b90b;
-            border-left-color: #f0b90b;
+
+        @media (max-width: 1024px) {
+            .main-grid { grid-template-columns: 1fr; }
+            .btc-hero-content { flex-direction: column; align-items: center; }
         }
-        
-        .connection-message.success {
-            background: rgba(3, 166, 109, 0.1);
-            color: #03a66d;
-            border-left-color: #03a66d;
-        }
-        
-        .connection-message.error {
-            background: rgba(231, 76, 60, 0.1);
-            color: #e74c3c;
-            border-left-color: #e74c3c;
-        }
-        
-        /* 반응형 디자인 */
-        @media (max-width: 1200px) {
-            .info-panel {
-                grid-template-columns: repeat(2, 1fr);
-            }
-            
-            .main-content {
-                grid-template-columns: 1fr;
-            }
-            
-            .bottom-panel {
-                grid-template-columns: 1fr;
-            }
-        }
-        
-        @media (max-width: 768px) {
-            .dashboard-container {
-                padding: 15px;
-            }
-            
-            .header {
-                flex-direction: column;
-                gap: 15px;
-                text-align: center;
-            }
-            
-            .info-panel {
-                grid-template-columns: 1fr;
-            }
-            
-            .info-card {
-                padding: 20px;
-            }
-            
-            .chart-area {
-                height: 300px;
-            }
-            
-            .control-buttons {
-                flex-direction: column;
-            }
-        }
-        
-        .zero-data {
-            color: #848e9c;
-            font-style: italic;
-        }
-        
-        .btn-icon {
-            background: rgba(255, 255, 255, 0.1);
-            border: none;
-            color: #eaecef;
-            font-size: 16px;
-            cursor: pointer;
-            padding: 10px;
-            border-radius: 10px;
-            transition: all 0.3s ease;
-            width: 40px;
-            height: 40px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-        
-        .btn-icon:hover {
-            background: rgba(0, 212, 170, 0.2);
-            color: #00d4aa;
-            transform: rotate(90deg);
-        }
-        
-        .update-time {
-            font-size: 12px;
-            color: #848e9c;
+
+        @media (max-width: 640px) {
+            .top-bar { flex-direction: column; align-items: flex-start; }
         }
     </style>
 </head>
 <body>
-    <div id="app" class="dashboard-container">
-        <!-- 헤더 -->
-        <div class="header">
-            <div class="logo">
-                <i class="fas fa-brain"></i>
-                DeepSignal AI
+    <div id="app" class="app-shell">
+        <header class="top-bar">
+            <div class="brand">
+                <div class="brand-mark">₿</div>
+                <div class="brand-copy">
+                    <small>DeepSignal Intelligence</small>
+                    <strong>Bitcoin Pulse Control</strong>
+                </div>
             </div>
-            
-            <div class="user-menu">
-                <div class="connection-status">
-                    <span class="status-dot" :class="connectionStatusClass"></span>
+            <div class="top-actions">
+                <div class="status-chip" :class="connectionStatus">
+                    <span class="dot"></span>
                     {{ connectionStatusText }}
                 </div>
-                <button @click="showApiConfig" class="btn-icon">
-                    <i class="fas fa-cog"></i>
+                <button class="btn btn-primary" @click="showConfigModal = true">
+                    <i class="fas fa-sliders-h"></i> 연결 설정
                 </button>
-                <span>Brianne</span>
-                <div class="user-avatar">B</div>
             </div>
-        </div>
-        
-        <!-- 정보 패널 -->
-        <div class="info-panel">
-            <div class="info-card">
-                <div class="card-title">현재 진입중인 코인</div>
-                <div class="card-content">
-                    <div class="coin-logo">B</div>
-                    <div>{{ apiConnected ? 'BTC/USDT' : '연결 필요' }}</div>
-                </div>
-            </div>
-            
-            <div class="info-card">
-                <div class="card-title">Balance (USDT)</div>
-                <div class="card-content">
-                    ${{ apiConnected ? formatNumber(balance.usdt) : '0' }}
-                </div>
-            </div>
-            
-            <div class="info-card">
-                <div class="card-title">Balance (KRW)</div>
-                <div class="card-content">
-                    ₩{{ apiConnected ? formatNumber(balance.krw) : '0' }}
-                </div>
-            </div>
-            
-            <div class="info-card">
-                <div class="card-title">24시간 수익률</div>
-                <div class="card-content" :class="apiConnected ? (profit24h >= 0 ? 'profit-positive' : 'profit-negative') : ''">
-                    {{ apiConnected ? (profit24h >= 0 ? '+' : '') + profit24h.toFixed(2) + '%' : '0%' }}
-                </div>
-            </div>
-        </div>
-        
-        <!-- 메인 콘텐츠 -->
-        <div class="main-content">
-            <!-- 차트 영역 -->
-            <div class="chart-container">
-                <div class="chart-header">
-                    <div class="chart-title">BTC/USDT 실시간 차트</div>
-                    <div class="chart-options">
-                        <div class="timeframe-options">
-                            <div 
-                                v-for="timeframe in timeframes" 
-                                :key="timeframe"
-                                class="timeframe" 
-                                :class="{ active: selectedTimeframe === timeframe }"
-                                @click="changeTimeframe(timeframe)"
-                            >
-                                {{ timeframe }}
-                            </div>
+        </header>
+
+        <section class="btc-hero">
+            <div class="btc-hero-content">
+                <div class="btc-copy">
+                    <h1>새로운 비트코인 AI 시그널</h1>
+                    <p>실시간 온체인 데이터와 시장 미세 구조를 결합한 DeepSignal의 차세대 트레이딩 엔진입니다.</p>
+                    <div class="hero-metrics">
+                        <div class="hero-metric">
+                            <span>활성 전략</span>
+                            <strong>{{ tradingActive ? '실행 중' : '대기 중' }}</strong>
                         </div>
-                        <div class="exchange-badge">BINANCE</div>
-                    </div>
-                </div>
-                
-                <div class="chart-area">
-                    <div class="chart-placeholder">
-                        <div v-if="!apiConnected">
-                            <i class="fas fa-plug" style="font-size: 48px; margin-bottom: 15px; color: #848e9c;"></i>
-                            <div>API 연결 후 실시간 차트가 표시됩니다</div>
+                        <div class="hero-metric">
+                            <span>AI 신호</span>
+                            <strong>{{ aiSignalStatus }}</strong>
                         </div>
-                        <div v-else>
-                            <div v-if="!chartDataLoaded" class="loading"></div>
-                            <div v-else>
-                                <i class="fas fa-chart-line" style="font-size: 48px; margin-bottom: 15px; color: #00d4aa;"></i>
-                                <div>실시간 차트 데이터 스트리밍 중...</div>
-                            </div>
+                        <div class="hero-metric">
+                            <span>라이브 포지션</span>
+                            <strong>{{ openPositions.length }} 개</strong>
                         </div>
                     </div>
                 </div>
-            </div>
-            
-            <!-- AI 컨트롤 패널 -->
-            <div class="ai-control-panel">
-                <div class="panel-title">AI 트레이딩 컨트롤</div>
-                
-                <div class="strategy-selector">
-                    <select class="strategy-dropdown" v-model="selectedStrategy" :disabled="!apiConnected">
-                        <option value="momentum">DeepSignal V2.0 - 모멘텀 전략</option>
-                        <option value="meanReversion">DeepSignal V1.5 - 평균 회귀 전략</option>
-                        <option value="volatilityBreakout">DeepSignal V1.0 - 변동성 돌파 전략</option>
-                    </select>
-                    
-                    <div class="control-buttons">
-                        <button 
-                            class="btn btn-start" 
-                            :disabled="tradingActive || connecting || !apiConnected" 
-                            @click="startTrading"
-                        >
-                            <span v-if="connecting" class="loading"></span>
-                            {{ connecting ? '연결 중' : 'START TRADING' }}
-                        </button>
-                        <button 
-                            class="btn btn-stop" 
-                            :disabled="!tradingActive || !apiConnected" 
-                            @click="stopTrading"
-                        >
-                            STOP TRADING
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="ai-signal">
-                    <div class="signal-title">현재 AI 신호</div>
-                    <div class="signal-status">{{ aiSignalStatus }}</div>
-                </div>
-                
-                <div class="system-status">
-                    <div class="status-item">
-                        <div class="status-label">시스템 상태</div>
-                        <div class="status-value">{{ systemStatus }}</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">레버리지</div>
-                        <div class="status-value">{{ leverage }}x</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">총 투자금액</div>
-                        <div class="status-value">${{ formatNumber(totalInvestment) }}</div>
-                    </div>
-                    <div class="status-item">
-                        <div class="status-label">실행 시간</div>
-                        <div class="status-value">{{ runningTime }}</div>
+                <div>
+                    <div class="btc-coin">
+                        ₿
                     </div>
                 </div>
             </div>
-        </div>
-        
-        <!-- 하단 패널 -->
-        <div class="bottom-panel">
-            <!-- 포지션 현황 -->
-            <div class="positions-panel">
+        </section>
+
+        <transition name="fade">
+            <div class="global-banner" :class="messageType" v-if="message">
+                <i class="fas" :class="{
+                    'fa-check-circle': messageType === 'success',
+                    'fa-circle-info': messageType === 'info',
+                    'fa-circle-exclamation': messageType === 'error'
+                }"></i>
+                {{ message }}
+            </div>
+        </transition>
+
+        <section class="summary-grid">
+            <article class="summary-card">
+                <h4>총 계좌 잔고</h4>
+                <div class="summary-value">${{ formatNumber(accountBalance) }}</div>
+                <div class="summary-meta">
+                    <span>현금성 자산</span>
+                    <span :class="profit24h >= 0 ? 'pnl-positive' : 'pnl-negative'">
+                        {{ profit24h >= 0 ? '+' : ''}}{{ profit24h.toFixed(2) }}%
+                    </span>
+                </div>
+            </article>
+            <article class="summary-card">
+                <h4>총 자산 가치</h4>
+                <div class="summary-value">${{ formatNumber(totalAssetValue) }}</div>
+                <div class="summary-meta">
+                    <span>AI 최적화 배분</span>
+                    <span>{{ openPositions.length }}개 포지션</span>
+                </div>
+            </article>
+            <article class="summary-card">
+                <h4>AI 신뢰도</h4>
+                <div class="summary-value">{{ tradingActive ? 'Live' : 'Idle' }}</div>
+                <div class="summary-meta">
+                    <span>{{ aiSignalStatus }}</span>
+                    <span>{{ runningTime }}</span>
+                </div>
+            </article>
+            <article class="summary-card">
+                <h4>연결 상태</h4>
+                <div class="summary-value" :class="isConnected ? 'pnl-positive' : 'pnl-negative'">
+                    {{ isConnected ? 'Connected' : 'Offline' }}
+                </div>
+                <div class="summary-meta">
+                    <span>엔드포인트</span>
+                    <span>{{ backendUrl }}</span>
+                </div>
+            </article>
+        </section>
+
+        <section class="main-grid">
+            <div class="panel">
                 <div class="panel-header">
-                    <div class="panel-title">활성 포지션</div>
-                    <div class="panel-actions">
-                        <span class="update-time">실시간 업데이트</span>
+                    <h3>비트코인 트레이딩 콘솔</h3>
+                    <span class="pill"><i class="fas fa-bolt"></i> {{ tradingActive ? '신호 송출 중' : '대기 중' }}</span>
+                </div>
+
+                <div class="control-grid">
+                    <div>
+                        <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px;">거래 심볼</label>
+                        <select class="input-field" v-model="selectedSymbol">
+                            <option>BTCUSDT</option>
+                            <option>ETHUSDT</option>
+                            <option>BNBUSDT</option>
+                            <option>SOLUSDT</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:12px;color:var(--text-muted);display:block;margin-bottom:6px;">실행 상태</label>
+                        <div class="input-field" style="font-weight:600;">
+                            {{ tradingActive ? 'AI 자동매매 실행 중' : '대기 중' }}
+                        </div>
                     </div>
                 </div>
-                
-                <div v-if="!apiConnected" class="no-positions">
-                    <i class="fas fa-unlink"></i>
-                    <div>API 연결이 필요합니다</div>
-                    <button @click="showApiConfig" class="btn btn-start" style="margin-top: 15px;">
-                        API 설정하기
+
+                <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px;">
+                    <button class="btn btn-primary" @click="startTrading" :disabled="!isConnected || tradingActive">
+                        <i class="fas fa-play"></i> 전략 시작
+                    </button>
+                    <button class="btn" @click="stopTrading" :disabled="!tradingActive">
+                        <i class="fas fa-stop"></i> 즉시 중지
                     </button>
                 </div>
-                
-                <div v-else-if="openPositions.length === 0" class="no-positions">
-                    <i class="fas fa-chart-line"></i>
-                    <div>활성 포지션이 없습니다</div>
-                    <div class="strategy-text" style="margin-top: 10px; font-size: 12px;">
-                        AI 트레이딩을 시작하면 포지션이 여기에 표시됩니다
+
+                <div class="insight-list">
+                    <div class="insight-item">
+                        <strong>시스템 로그</strong>
+                        <p style="margin:6px 0 0;color:var(--text-muted);font-size:14px;">
+                            {{ aiSignalStatus }} · {{ openPositions.length }}개의 포지션 모니터링 중
+                        </p>
+                    </div>
+                    <div class="insight-item">
+                        <strong>데이터 동기화</strong>
+                        <p style="margin:6px 0 0;color:var(--text-muted);font-size:14px;">
+                            {{ isConnected ? '백엔드에서 실시간 데이터를 수신하고 있습니다.' : '연결을 설정하면 라이브 데이터가 표시됩니다.' }}
+                        </p>
                     </div>
                 </div>
-                
-                <div v-else>
-                    <table class="trades-table">
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <h3>포지션 인사이트</h3>
+                    <span class="pill"><i class="fas fa-layer-group"></i> {{ openPositions.length }} Positions</span>
+                </div>
+
+                <div v-if="!isConnected" class="insight-item" style="border-style:dashed;">
+                    백엔드 연결 후 실제 포지션이 여기에 표시됩니다.
+                </div>
+                <div v-else-if="openPositions.length === 0" class="insight-item" style="border-style:dashed;">
+                    현재 오픈 포지션이 없습니다.
+                </div>
+                <div v-else style="overflow-x:auto;">
+                    <table>
                         <thead>
                             <tr>
-                                <th>코인</th>
-                                <th>포지션</th>
+                                <th>자산</th>
                                 <th>수량</th>
                                 <th>진입가</th>
                                 <th>현재가</th>
@@ -1013,404 +665,291 @@
                             </tr>
                         </thead>
                         <tbody>
-                            <tr v-for="position in openPositions" :key="position.id">
+                            <tr v-for="position in openPositions" :key="position.symbol">
                                 <td>{{ position.symbol }}</td>
-                                <td :class="position.side === 'BUY' ? 'trade-buy' : 'trade-sell'">
-                                    {{ position.side === 'BUY' ? 'LONG' : 'SHORT' }}
-                                </td>
-                                <td>{{ position.quantity }}</td>
+                                <td>{{ position.amount }}</td>
                                 <td>${{ position.entryPrice.toFixed(2) }}</td>
                                 <td>${{ position.currentPrice.toFixed(2) }}</td>
-                                <td :class="position.pnl >= 0 ? 'profit-positive' : 'profit-negative'">
-                                    ${{ position.pnl.toFixed(2) }}
+                                <td :class="position.pnl >= 0 ? 'pnl-positive' : 'pnl-negative'">
+                                    ${{ position.pnl.toFixed(2) }} ({{ position.pnlPercent?.toFixed(2) }}%)
                                 </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
-            </div>
-            
-            <!-- 전략 설명 -->
-            <div class="strategy-panel">
-                <div class="panel-header">
-                    <div class="panel-title">전략 상세 정보</div>
-                </div>
-                
-                <div class="strategy-content">
-                    <div class="strategy-section">
-                        <div class="strategy-section-title">{{ strategyDetails.title }}</div>
-                        <div class="strategy-text">
-                            {{ strategyDetails.description }}
-                        </div>
-                    </div>
-                    
-                    <div class="strategy-section">
-                        <div class="strategy-section-title">활용 기술 지표</div>
-                        <div class="strategy-text">
-                            {{ strategyDetails.indicators }}
-                        </div>
-                    </div>
-                    
-                    <div class="strategy-section">
-                        <div class="strategy-section-title">리스크 관리 설정</div>
-                        <div class="strategy-text">
-                            {{ strategyDetails.riskManagement }}
-                        </div>
-                    </div>
-                    
-                    <div class="backtest-result">
-                        <div class="strategy-text">역대 최고 백테스팅 수익률</div>
-                        <div class="backtest-value">+{{ strategyDetails.backtestResult }}</div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- API 설정 모달 -->
-        <div class="modal-overlay" v-if="showApiConfigModal">
-            <div class="modal">
-                <div class="modal-header">
-                    <div class="modal-title">🔧 Binance API 설정</div>
-                    <button class="close-modal" @click="showApiConfigModal = false">&times;</button>
+                <div class="metrics-grid" style="margin-top:18px;">
+                    <div>백엔드 URL</div>
+                    <div>{{ backendUrl }}</div>
+                    <div>마지막 점검</div>
+                    <div>{{ lastCheck }}</div>
                 </div>
-                
-                <div class="connection-message" :class="connectionMessageType" v-if="connectionMessage">
-                    {{ connectionMessage }}
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">API Key</label>
-                    <input type="text" class="form-input" v-model="apiConfig.apiKey" 
-                           placeholder="Binance API Key를 입력하세요">
-                    <div class="form-help">
-                        <a href="https://testnet.binance.vision/" target="_blank" style="color: #00d4aa;">
-                            🔗 Binance 테스트넷에서 API 키 발급받기
-                        </a>
-                    </div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">Secret Key</label>
-                    <input type="password" class="form-input" v-model="apiConfig.secretKey" 
-                           placeholder="Binance Secret Key를 입력하세요">
-                    <div class="form-help">테스트넷에서 발급받은 Secret Key를 입력하세요</div>
-                </div>
-                
-                <div class="form-group">
-                    <label class="form-label">백엔드 서버 주소</label>
-                    <input type="text" class="form-input" v-model="apiConfig.backendUrl" 
-                           placeholder="http://localhost:8000">
-                    <div class="form-help">FastAPI 백엔드 서버가 실행 중인 주소</div>
-                </div>
-                
+            </div>
+        </section>
+
+        <div v-if="showConfigModal" class="modal-backdrop">
+            <div class="modal-card">
+                <h3>백엔드 연결 설정</h3>
+                <p class="modal-desc">
+                    DeepSignal 백엔드 엔드포인트를 입력하고 연결 상태를 확인하세요. 설정은 로컬에 안전하게 저장됩니다.
+                </p>
+
+                <label style="font-size:14px;color:var(--text-muted);display:block;margin-bottom:6px;">백엔드 URL</label>
+                <input class="input-field" type="text" v-model="backendUrl" placeholder="http://localhost:8001">
+                <small style="color:var(--text-muted);display:block;margin-top:6px;">예: http://localhost:8001</small>
+
                 <div class="modal-actions">
-                    <button class="btn btn-secondary" @click="showApiConfigModal = false">취소</button>
-                    <button class="btn btn-start" @click="testConnection" :disabled="connecting">
-                        <span v-if="connecting" class="loading"></span>
-                        {{ connecting ? '연결 테스트 중...' : '연결 테스트' }}
+                    <button class="btn" style="flex:1 1 150px;" @click="testConnection" :disabled="testingConnection">
+                        <span v-if="testingConnection"><i class="fas fa-spinner fa-spin"></i> 테스트 중...</span>
+                        <span v-else>연결 테스트</span>
                     </button>
-                    <button class="btn btn-start" @click="saveApiConfig" :disabled="connecting">
-                        저장 및 연결
+                    <button class="btn btn-primary" style="flex:1 1 180px;" @click="saveAndConnect" :disabled="!connectionSuccess">
+                        저장 후 연결
+                    </button>
+                    <button class="btn" style="flex:1 1 100px;" @click="showConfigModal = false">
+                        닫기
                     </button>
                 </div>
-                
-                <!-- 테스트 계정 정보 -->
-                <div class="test-account-info">
-                    <div class="strategy-section-title">🧪 테스트용 API 키 (개발용)</div>
-                    <div class="strategy-text">
-                        API Key: <code>test_api_key_12345</code><br>
-                        Secret Key: <code>test_secret_key_67890</code><br>
-                        <small style="color: #848e9c;">※ 실제 거래가 발생하지 않는 테스트 키입니다</small>
+
+                <div style="margin-top:24px;padding:18px;border-radius:20px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+                    <h4 style="margin:0 0 12px;">연결 진단</h4>
+                    <div class="metrics-grid">
+                        <div>연결 상태</div>
+                        <div :class="isConnected ? 'pnl-positive' : 'pnl-negative'">
+                            {{ isConnected ? '활성화' : '비활성' }}
+                        </div>
+                        <div>테스트 결과</div>
+                        <div>{{ connectionSuccess ? '성공' : '대기 중' }}</div>
+                        <div>마지막 확인</div>
+                        <div>{{ lastCheck }}</div>
                     </div>
                 </div>
             </div>
         </div>
-    </div><!-- app 끝 -->
+    </div>
 
-    <!-- 모듈 스크립트 -->
-    <script src="js/modules/utils.js"></script>
-    <script src="js/modules/api.js"></script>
-    <script src="js/modules/trading.js"></script>
-    <script src="js/modules/charts.js"></script>
-    <script src="js/main.js"></script>
-
-    <!-- Vue 애플리케이션 -->
     <script>
         new Vue({
             el: '#app',
             data: {
-                // API 연결 상태
-                apiConnected: false,
-                connectionStatus: 'disconnected',
+                isConnected: false,
+                connectionSuccess: false,
+                testingConnection: false,
                 connecting: false,
-                connectionMessage: '',
-                connectionMessageType: 'info',
-                
-                // API 설정 모달
-                showApiConfigModal: false,
-                apiConfig: {
-                    apiKey: '',
-                    secretKey: '',
-                    backendUrl: 'http://localhost:8000'
-                },
-                
-                // 트레이딩 상태
+                connectionStatus: 'disconnected',
+                message: '백엔드 연결을 설정해주세요',
+                messageType: 'info',
+                showConfigModal: true,
+                backendUrl: 'http://localhost:8001',
+                lastCheck: '아직 없음',
                 tradingActive: false,
-                aiSignalStatus: '신호 대기 중',
-                systemStatus: '시스템 준비 완료',
-                
-                // 데이터
-                balance: {
-                    usdt: 10000,
-                    krw: 13500000
-                },
-                profit24h: 2.34,
-                
-                // 차트
-                timeframes: ['1m', '5m', '15m', '1h', '4h', '1d', '1w'],
-                selectedTimeframe: '1h',
-                chartDataLoaded: true,
-                
-                // 전략
-                selectedStrategy: 'momentum',
-                leverage: 3,
-                totalInvestment: 2500,
+                selectedSymbol: 'BTCUSDT',
+                aiSignalStatus: '대기 중',
                 runningTime: '00:00:00',
-                
-                // 포지션
+                runningSeconds: 0,
+                runningTimer: null,
+                accountBalance: 0,
+                totalAssetValue: 0,
+                profit24h: 0,
                 openPositions: [],
-                
-                // 전략 설명
-                strategyDetails: {
-                    title: 'DeepSignal V2.0 - 모멘텀 전략',
-                    description: '이 전략은 강한 모멘텀을 보이는 코인을 식별하여 진입하는 알고리즘입니다. 시장의 추세가 강할 때 진입하여 단기 이익을 실현하는 것을 목표로 합니다.',
-                    indicators: '• RSI (Relative Strength Index) - 과매수/과매도 구간 판단\n• MACD (Moving Average Convergence Divergence) - 모멘텀 변화 감지\n• 이동평균선 (EMA 9, 21, 50) - 추세 판단\n• 볼린저 밴드 - 변동성 분석',
-                    riskManagement: '• Stop-loss: 2% 하락 시 자동 청산\n• Take-profit: 5% 상승 시 부분 청산 (50%)\n• 8% 상승 시 전량 청산\n• 최대 드로다운: 15%',
-                    backtestResult: '99.2%'
-                }
+                dataUpdateInterval: null
             },
             computed: {
-                connectionStatusClass() {
-                    return {
-                        'status-dot': true,
-                        'status-connected': this.connectionStatus === 'connected',
-                        'status-disconnected': this.connectionStatus === 'disconnected',
-                        'status-connecting': this.connectionStatus === 'connecting'
-                    };
-                },
                 connectionStatusText() {
                     return {
-                        'connected': '실시간 연결됨',
+                        'connected': '백엔드 연결됨',
                         'connecting': '연결 중...',
                         'disconnected': '연결 끊김'
                     }[this.connectionStatus];
                 }
             },
             methods: {
-                showApiConfig() {
-                    // 저장된 API 설정이 있으면 불러오기
-                    const savedConfig = localStorage.getItem('deepSignalApiConfig');
-                    if (savedConfig) {
-                        this.apiConfig = JSON.parse(savedConfig);
-                    }
-                    this.showApiConfigModal = true;
-                    this.connectionMessage = '';
-                },
-
                 async testConnection() {
-    this.connecting = true;
-    this.connectionMessage = '🔗 연결 테스트 중...';
-    this.connectionMessageType = 'info';
-
-    try {
-        // 1. 먼저 모듈이 로드되었는지 확인
-        if (typeof BinanceAPI === 'undefined') {
-            throw new Error('BinanceAPI 모듈이 로드되지 않았습니다');
-        }
-
-        console.log('🔧 BinanceAPI 모듈 상태:', BinanceAPI);
-        console.log('🔧 setApiKeys 함수 존재:', typeof BinanceAPI.prototype.setApiKeys);
-
-        // 2. API 키 설정 (함수가 존재하는지 다시 확인)
-        if (this.apiConfig.apiKey && this.apiConfig.secretKey) {
-            if (typeof BinanceAPI.prototype.setApiKeys === 'function') {
-                BinanceAPI.prototype.setApiKeys(this.apiConfig.apiKey, this.apiConfig.secretKey);
-                console.log('✅ API 키 설정 완료');
-            } else if (binanceAPI && typeof binanceAPI.setApiKeys === 'function') {
-                binanceAPI.setApiKeys(this.apiConfig.apiKey, this.apiConfig.secretKey);
-                console.log('✅ API 키 설정 완료 (인스턴스)');
-            } else {
-                console.warn('⚠️ setApiKeys 함수를 찾을 수 없습니다');
-            }
-        }
-
-        // 3. 기본 연결 테스트 (공개 API)
-        const testResult = await binanceAPI.testConnection();
-        
-        if (testResult.success) {
-            this.connectionMessage = '✅ Binance API 연결 성공!';
-            this.connectionMessageType = 'success';
-            
-            // 추가 테스트: 현재가 조회
-            const price = await binanceAPI.getCurrentPrice('BTCUSDT');
-            if (price && !price.error) {
-                this.connectionMessage += ` BTC 가격: $${parseFloat(price.price).toFixed(2)}`;
-            }
-        } else {
-            throw new Error(testResult.error);
-        }
-        
-    } catch (error) {
-        console.error('❌ 연결 테스트 실패:', error);
-        this.connectionMessage = `❌ 연결 실패: ${error.message}`;
-        this.connectionMessageType = 'error';
-        
-        // 네트워크 에러인 경우
-        if (error.message.includes('Failed to fetch')) {
-            this.connectionMessage += '\n🌐 인터넷 연결을 확인하세요';
-        }
-    } finally {
-        this.connecting = false;
-    }
-},
-
-                async saveApiConfig() {
-                    // API 설정 저장
-                    localStorage.setItem('deepSignalApiConfig', JSON.stringify(this.apiConfig));
-                    
-                    // 모듈에 API 키 설정
-                    if (typeof BinanceAPI !== 'undefined' && this.apiConfig.apiKey) {
-                        BinanceAPI.setApiKeys(this.apiConfig.apiKey, this.apiConfig.secretKey);
+                    if (!this.backendUrl) {
+                        this.showMessage('백엔드 URL을 입력해주세요', 'error');
+                        return;
                     }
-
-                    // 연결 상태 업데이트
-                    this.apiConnected = true;
-                    this.connectionStatus = 'connected';
-                    this.systemStatus = 'API 연결됨';
-                    
-                    // 모달 닫기
-                    this.showApiConfigModal = false;
-                    
-                    // 데이터 업데이트 시작
-                    this.startDataUpdates();
-                    
-                    console.log('✅ API 설정 저장 완료:', this.apiConfig);
-                },
-
-                startDataUpdates() {
-                    // 3초마다 데이터 업데이트
-                    setInterval(() => {
-                        if (this.apiConnected) {
-                            this.updateMarketData();
+                    this.testingConnection = true;
+                    this.showMessage('백엔드 연결 테스트 중...', 'info');
+                    try {
+                        const response = await axios.get(`${this.backendUrl}/api/health`, { timeout: 5000 });
+                        if (response.data.status === 'OK') {
+                            this.showMessage('✅ 백엔드 연결 성공!', 'success');
+                            this.connectionSuccess = true;
+                            this.lastCheck = new Date().toLocaleTimeString();
+                        } else {
+                            throw new Error('백엔드 상태 이상: ' + JSON.stringify(response.data));
                         }
-                    }, 3000);
-                },
-
-                updateMarketData() {
-                    // 시장 데이터 업데이트 (테스트 데이터)
-                    if (this.apiConnected) {
-                        // 랜덤 가격 변동 시뮬레이션
-                        const change = (Math.random() - 0.5) * 100;
-                        this.balance.usdt = 10000 + change;
-                        this.balance.krw = Math.round(this.balance.usdt * 1350);
-                        this.profit24h = parseFloat((Math.random() * 4 - 2).toFixed(2));
-                        
-                        // AI 신호 업데이트
-                        const signals = ['매수 신호 강함', '매도 신호 감지', '보유 권장', '변동성 주의'];
-                        this.aiSignalStatus = signals[Math.floor(Math.random() * signals.length)];
+                    } catch (error) {
+                        this.showMessage(`❌ 연결 실패: ${error.message}`, 'error');
+                        this.connectionSuccess = false;
+                        this.lastCheck = new Date().toLocaleTimeString();
+                    } finally {
+                        this.testingConnection = false;
                     }
                 },
-
-                changeTimeframe(timeframe) {
-                    this.selectedTimeframe = timeframe;
+                async saveAndConnect() {
+                    if (!this.connectionSuccess) {
+                        this.showMessage('먼저 연결 테스트를 성공해야 합니다', 'error');
+                        return;
+                    }
+                    localStorage.setItem('deepSignalBackendUrl', this.backendUrl);
+                    await this.connectToBackend();
+                    this.showConfigModal = false;
                 },
-                
-                startTrading() {
-                    this.tradingActive = true;
-                    this.aiSignalStatus = '매수 신호 감지!';
-                    this.systemStatus = '트레이딩 실행 중';
-                    
-                    // 모듈 사용
-                    if (typeof TradingEngine !== 'undefined') {
-                        TradingEngine.startTrading(this.selectedStrategy, {
-                            symbol: "BTCUSDT",
-                            quantity: 0.001
+                async connectToBackend() {
+                    this.connecting = true;
+                    this.connectionStatus = 'connecting';
+                    this.showMessage('백엔드에 연결 중...', 'info');
+                    try {
+                        const response = await axios.get(`${this.backendUrl}/api/health`);
+                        if (response.data.status === 'OK') {
+                            this.isConnected = true;
+                            this.connectionStatus = 'connected';
+                            this.showMessage('✅ 백엔드 연결 성공! 데이터를 불러오는 중...', 'success');
+                            await this.loadAccountInfo();
+                            this.startDataUpdates();
+                        } else {
+                            throw new Error('백엔드 상태 이상');
+                        }
+                    } catch (error) {
+                        this.isConnected = false;
+                        this.connectionStatus = 'disconnected';
+                        this.showMessage(`❌ 연결 실패: ${error.message}`, 'error');
+                    } finally {
+                        this.connecting = false;
+                    }
+                },
+                async loadAccountInfo() {
+                    if (!this.isConnected) return;
+                    try {
+                        const [accountResponse, dashboardResponse, positionsResponse] = await Promise.all([
+                            axios.get(`${this.backendUrl}/api/trading/account`),
+                            axios.get(`${this.backendUrl}/api/dashboard`),
+                            axios.get(`${this.backendUrl}/api/trading/positions`)
+                        ]);
+                        this.accountBalance = accountResponse.data.totalBalance || 10000;
+                        this.totalAssetValue = accountResponse.data.totalBalance || 12500;
+                        this.openPositions = positionsResponse.data || [];
+                        this.calculateProfit();
+                        this.showMessage('✅ 데이터 로드 완료!', 'success');
+                    } catch (error) {
+                        this.showMessage('데이터 로드 실패, Mock 데이터 사용 중', 'error');
+                        this.useMockData();
+                    }
+                },
+                useMockData() {
+                    this.accountBalance = 10000;
+                    this.totalAssetValue = 12500;
+                    this.profit24h = 2.5;
+                    this.openPositions = [
+                        { symbol: 'BTCUSDT', amount: 0.1, entryPrice: 34000, currentPrice: 35000, pnl: 1000, pnlPercent: 2.94 },
+                        { symbol: 'ETHUSDT', amount: 2.5, entryPrice: 1800, currentPrice: 1850.75, pnl: 126.88, pnlPercent: 2.82 }
+                    ];
+                },
+                calculateProfit() {
+                    if (this.openPositions.length > 0) {
+                        const totalPnl = this.openPositions.reduce((sum, pos) => sum + (pos.pnl || 0), 0);
+                        const totalInvestment = this.openPositions.reduce((sum, pos) => sum + ((pos.amount || 0) * (pos.entryPrice || 0)), 0);
+                        this.profit24h = totalInvestment > 0 ? (totalPnl / totalInvestment) * 100 : 0;
+                    } else {
+                        this.profit24h = 0;
+                    }
+                },
+                startDataUpdates() {
+                    this.dataUpdateInterval = setInterval(() => {
+                        if (this.isConnected) {
+                            this.loadAccountInfo();
+                        }
+                    }, 5000);
+                },
+                async startTrading() {
+                    if (!this.isConnected) {
+                        this.showMessage('먼저 백엔드를 연결해주세요', 'error');
+                        return;
+                    }
+                    try {
+                        this.showMessage('AI 트레이딩 시작 중...', 'info');
+                        const response = await axios.post(`${this.backendUrl}/api/ai-trading/start`, {
+                            symbols: [this.selectedSymbol],
+                            investmentPerTrade: 100,
+                            maxOpenTrades: 2,
+                            riskRewardRatio: 1.5,
+                            checkInterval: 60000
                         });
+                        if (response.data.success) {
+                            this.tradingActive = true;
+                            this.aiSignalStatus = '신호 감지 중';
+                            this.startRunningTimer();
+                            this.showMessage('✅ AI 트레이딩 시작됨!', 'success');
+                        } else {
+                            this.showMessage('트레이딩 시작 실패: ' + response.data.error, 'error');
+                        }
+                    } catch (error) {
+                        this.showMessage('트레이딩 시작 실패: ' + error.message, 'error');
                     }
-                    
-                    // 실행 시간 타이머 시작
-                    this.startRunningTimer();
                 },
-                
-                stopTrading() {
-                    this.tradingActive = false;
-                    this.aiSignalStatus = '신호 대기 중';
-                    this.systemStatus = '대기 중';
-                    
-                    // 모듈 사용
-                    if (typeof TradingEngine !== 'undefined') {
-                        TradingEngine.stopTrading();
+                async stopTrading() {
+                    try {
+                        this.showMessage('AI 트레이딩 중지 중...', 'info');
+                        const response = await axios.post(`${this.backendUrl}/api/ai-trading/stop`);
+                        if (response.data.success) {
+                            this.tradingActive = false;
+                            this.aiSignalStatus = '중지됨';
+                            this.stopRunningTimer();
+                            this.showMessage('✅ AI 트레이딩 중지됨!', 'success');
+                        } else {
+                            this.showMessage('트레이딩 중지 실패: ' + response.data.error, 'error');
+                        }
+                    } catch (error) {
+                        this.showMessage('트레이딩 중지 실패: ' + error.message, 'error');
                     }
-                    
-                    // 타이머 정지
-                    this.stopRunningTimer();
                 },
-                
                 startRunningTimer() {
-                    let seconds = 0;
-                    setInterval(() => {
-                        seconds++;
-                        const hours = Math.floor(seconds / 3600);
-                        const minutes = Math.floor((seconds % 3600) / 60);
-                        const secs = seconds % 60;
-                        this.runningTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+                    this.runningSeconds = 0;
+                    this.runningTimer = setInterval(() => {
+                        this.runningSeconds++;
+                        this.updateRunningTime();
                     }, 1000);
                 },
-                
                 stopRunningTimer() {
-                    this.runningTime = '00:00:00';
+                    if (this.runningTimer) {
+                        clearInterval(this.runningTimer);
+                        this.runningTimer = null;
+                    }
                 },
-                
+                updateRunningTime() {
+                    const hours = Math.floor(this.runningSeconds / 3600);
+                    const minutes = Math.floor((this.runningSeconds % 3600) / 60);
+                    const seconds = this.runningSeconds % 60;
+                    this.runningTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                },
+                showMessage(text, type) {
+                    this.message = text;
+                    this.messageType = type;
+                    const timeout = type === 'error' ? 8000 : 5000;
+                    setTimeout(() => {
+                        if (this.message === text) {
+                            this.message = '';
+                        }
+                    }, timeout);
+                },
                 formatNumber(num) {
-                    if (typeof Utils !== 'undefined') {
-                        return Utils.formatNumber(num, 2);
-                    }
-                    
-                    if (typeof num === 'number') {
-                        return num.toLocaleString(undefined, { 
-                            minimumFractionDigits: 2, 
-                            maximumFractionDigits: 2 
-                        });
-                    }
-                    return '0';
+                    return typeof num === 'number' ? num.toLocaleString() : '0';
                 }
             },
             mounted() {
-                console.log('대시보드가 성공적으로 로드되었습니다!');
-                
-                // 저장된 API 설정이 있으면 자동 연결
-                const savedConfig = localStorage.getItem('deepSignalApiConfig');
-                if (savedConfig) {
-                    const config = JSON.parse(savedConfig);
-                    this.apiConfig = config;
-                    this.apiConnected = true;
-                    this.connectionStatus = 'connected';
-                    this.systemStatus = 'API 연결됨';
-                    this.startDataUpdates();
+                const savedUrl = localStorage.getItem('deepSignalBackendUrl');
+                if (savedUrl) {
+                    this.backendUrl = savedUrl;
+                    this.connectToBackend();
                 }
-                
-                // 모듈 테스트
-                setTimeout(() => {
-                    if (typeof Utils !== 'undefined') {
-                        console.log('✅ Utils 모듈 로드됨');
-                    }
-                    if (typeof BinanceAPI !== 'undefined') {
-                        console.log('✅ BinanceAPI 모듈 로드됨');
-                    }
-                    if (typeof TradingEngine !== 'undefined') {
-                        console.log('✅ TradingEngine 모듈 로드됨');
-                    }
-                }, 1000);
+            },
+            beforeDestroy() {
+                this.stopTrading();
+                if (this.dataUpdateInterval) {
+                    clearInterval(this.dataUpdateInterval);
+                }
             }
         });
     </script>

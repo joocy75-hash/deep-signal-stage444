@@ -33,7 +33,7 @@ end
 # Unset irrelevant variables.
 deactivate nondestructive
 
-set -gx VIRTUAL_ENV "/Users/joo/Desktop/deep-signal-stage12/backend/.venv"
+set -gx VIRTUAL_ENV "/Users/joo/Desktop/deep-signal-stage444/backend/.venv"
 
 set -gx _OLD_VIRTUAL_PATH $PATH
 set -gx PATH "$VIRTUAL_ENV/bin" $PATH
